@@ -3,19 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>中国城市地理速刷</title>
+  <title>中国城市地理速刷 - 高德中文版</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     :root {
-      --primary: #fbbf24; /* 亮金色 */
-      --accent: #ef4444;  /* 红色 */
-      --bg-glass: rgba(15, 23, 42, 0.9);
-      --text-gray: #94a3b8; 
+      --primary: #fbbf24; 
+      --accent: #ef4444;  
+      --bg-glass: rgba(15, 23, 42, 0.95);
     }
 
     html, body { height: 100%; margin: 0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #000; overflow: hidden; }
-    #map { height: 100vh; width: 100vw; z-index: 1; cursor: crosshair; filter: brightness(0.8) contrast(1.2); }
+    #map { height: 100vh; width: 100vw; z-index: 1; cursor: crosshair; }
 
     /* 顶部传送带 UI */
     .header-ui { position: absolute; top: 0; left: 0; width: 100%; height: 160px; background: linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%); z-index: 1001; pointer-events: none; }
@@ -23,30 +22,24 @@
     .conveyor-belt { display: flex; align-items: center; position: absolute; left: 50%; transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
     .city-card { min-width: 320px; text-align: center; opacity: 0.1; transform: scale(0.8); transition: 0.5s; }
     .city-card.active { opacity: 1; transform: scale(1.1); }
-    .city-name-en { font-size: 1.1rem; color: var(--text-gray); font-weight: 800; letter-spacing: 3px; text-transform: uppercase; display: block; margin-bottom: -5px; }
-    .city-name-cn { font-size: 4rem; font-weight: 900; color: #fff; display: block; text-shadow: 0 0 20px rgba(0,0,0,1); }
+    .city-name-cn { font-size: 4.5rem; font-weight: 900; color: #fff; display: block; text-shadow: 0 0 20px rgba(0,0,0,1); letter-spacing: 2px; }
 
-    /* 左侧状态栏 */
-    .stats-panel { position: absolute; bottom: 30px; left: 30px; z-index: 1002; background: var(--bg-glass); padding: 22px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(15px); color: #fff; min-width: 180px; }
+    /* 状态栏 */
+    .stats-panel { position: absolute; bottom: 30px; left: 30px; z-index: 1002; background: var(--bg-glass); padding: 22px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(15px); color: #fff; min-width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     .stat-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
-    .stat-label { font-size: 0.8rem; color: #94a3b8; font-weight: 800; }
+    .stat-label { font-size: 0.85rem; color: #94a3b8; font-weight: 800; }
     .stat-value { font-size: 1.8rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--primary); }
-    .score-bump { animation: bump 0.3s ease-out; }
-    @keyframes bump { 0% { transform: scale(1); } 50% { transform: scale(1.3); color: #fff; } 100% { transform: scale(1); } }
+    
+    .fly-particle { position: fixed; z-index: 9999; pointer-events: none; background: rgba(0, 0, 0, 0.9); color: var(--primary); font-weight: 900; font-size: 2.2rem; padding: 10px 25px; border-radius: 12px; border: 2px solid var(--primary); transition: all 0.9s cubic-bezier(0.5, -0.3, 0.7, 0.1); box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
 
-    /* 分数飞溅效果 */
-    .fly-particle { position: fixed; z-index: 9999; pointer-events: none; background: rgba(0, 0, 0, 0.9); color: var(--primary); font-weight: 900; font-size: 2rem; padding: 10px 20px; border-radius: 12px; border: 2px solid var(--primary); transition: all 0.9s cubic-bezier(0.5, -0.3, 0.7, 0.1); }
-
-    /* 确认按钮 */
     #confirmContainer { position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); z-index: 1005; display: none; }
-    .btn-confirm { background: #fff; color: #000; border: none; padding: 20px 60px; border-radius: 15px; font-size: 1.4rem; font-weight: 900; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .btn-confirm { background: #fff; color: #000; border: none; padding: 20px 60px; border-radius: 15px; font-size: 1.5rem; font-weight: 900; cursor: pointer; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
 
-    /* 弹窗界面 */
-    .modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2000; background: radial-gradient(circle at center, #222 0%, #000 100%); }
-    .modal-box { text-align: center; padding: 50px; background: rgba(30, 41, 59, 0.7); border-radius: 30px; width: 450px; color: #fff; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
-    .btn-start { background: var(--primary); color: #000; border: none; padding: 20px; width: 100%; border-radius: 15px; font-size: 1.3rem; font-weight: 900; cursor: pointer; margin-top: 30px; }
-    .final-stat-item { margin: 20px 0; font-size: 1.2rem; color: #94a3b8; }
-    .final-stat-item b { color: #fff; font-size: 3rem; display: block; margin-top: 10px; }
+    /* 遮罩层 */
+    .modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2000; background: #000; }
+    .modal-box { text-align: center; padding: 50px; background: rgba(30, 41, 59, 0.9); border-radius: 30px; width: 450px; color: #fff; border: 1px solid rgba(255,255,255,0.1); }
+    .btn-start { background: var(--primary); color: #000; border: none; padding: 20px; width: 100%; border-radius: 15px; font-size: 1.4rem; font-weight: 900; cursor: pointer; margin-top: 30px; transition: 0.2s; }
+    .btn-start:hover { transform: scale(1.05); background: #fff; }
   </style>
 </head>
 <body>
@@ -54,8 +47,8 @@
   <div class="header-ui"><div class="conveyor-viewport" id="viewport" style="display:none"><div class="conveyor-belt" id="belt"></div></div></div>
   
   <div class="stats-panel" id="statsPanel" style="display:none">
-    <div class="stat-row"><span class="stat-label">当前得分</span><span id="score" class="stat-value">0</span></div>
-    <div class="stat-row"><span class="stat-label">用时</span><span id="time" class="stat-value">00:00</span></div>
+    <div class="stat-row"><span class="stat-label">得分</span><span id="score" class="stat-value">0</span></div>
+    <div class="stat-row"><span class="stat-label">时间</span><span id="time" class="stat-value">00:00</span></div>
     <div class="stat-row"><span class="stat-label">进度</span><span class="stat-value"><span id="progress">0</span><span style="color:#444">/</span><span id="total">0</span></span></div>
   </div>
 
@@ -63,44 +56,45 @@
 
   <div id="startModal" class="modal-overlay">
     <div class="modal-box">
-      <h1 style="font-size: 2.5rem; margin-bottom: 10px;">中国城市速刷</h1>
-      <p style="color: var(--text-gray);">在地图上点击城市位置，越近分越高</p>
+      <h1 style="font-size: 2.5rem; margin-bottom: 5px;">中国地理速刷</h1>
+      <p style="color: #94a3b8;">使用高德中文地图数据</p>
       <div style="margin:40px 0;">
-        <div style="font-size: 5rem; font-weight:900; color:var(--primary)" id="countDisplay">50</div>
+        <div style="font-size: 5.5rem; font-weight:900; color:var(--primary)" id="countDisplay">50</div>
         <input type="range" id="citySlider" min="10" max="200" value="50" style="width:100%; accent-color: var(--primary);">
-        <p>选择城市数量</p>
+        <p>设定城市数量</p>
       </div>
-      <button id="startBtn" class="btn-start">进入挑战 (回车)</button>
+      <button id="startBtn" class="btn-start">开始挑战 (Enter)</button>
     </div>
   </div>
   
-  <div id="endModal" class="modal-overlay" style="display:none; background:rgba(0,0,0,0.95)">
+  <div id="endModal" class="modal-overlay" style="display:none; background:rgba(0,0,0,0.98)">
     <div class="modal-box">
-      <h2 style="font-size: 2.5rem;">挑战完成！</h2>
-      <div class="final-stat-item">最终总分 <b id="finalScoreDisplay" style="color:var(--primary)">0</b></div>
-      <div class="final-stat-item">总计用时 <b id="finalTimeDisplay">00:00</b></div>
-      <button onclick="location.reload()" class="btn-start">再玩一次</button>
+      <h2 style="font-size: 2.8rem;">挑战完成！</h2>
+      <div style="margin:30px 0;">
+        <p style="color: #94a3b8;">最终成绩</p>
+        <b id="finalScoreDisplay" style="color:var(--primary); font-size: 4rem; display: block;">0</b>
+        <p id="finalTimeDisplay" style="font-size: 1.5rem; margin-top: 10px;">00:00</p>
+      </div>
+      <button onclick="location.reload()" class="btn-start">重新开始</button>
     </div>
   </div>
 
   <script>
-    // 200城市数据 (包含直辖市、省会、副省级、地级及特色城市)
+    // 200 城市数据库
     const DB = [
-      {cn:"北京",en:"BEIJING",coords:[39.9042,116.4074]},{cn:"上海",en:"SHANGHAI",coords:[31.2304,121.4737]},{cn:"广州",en:"GUANGZHOU",coords:[23.1291,113.2644]},{cn:"深圳",en:"SHENZHEN",coords:[22.5431,114.0579]},{cn:"成都",en:"CHENGDU",coords:[30.5728,104.0668]},{cn:"重庆",en:"CHONGQING",coords:[29.563,106.5516]},{cn:"杭州",en:"HANGZHOU",coords:[30.2741,120.1551]},{cn:"西安",en:"XI'AN",coords:[34.3416,108.9398]},{cn:"武汉",en:"WUHAN",coords:[30.5928,114.3055]},{cn:"南京",en:"NANJING",coords:[32.0603,118.7969]},{cn:"天津",en:"TIANJIN",coords:[39.0842,117.201]},{cn:"郑州",en:"ZHENGZHOU",coords:[34.7466,113.6253]},{cn:"长沙",en:"CHANGSHA",coords:[28.2282,112.9388]},{cn:"沈阳",en:"SHENYANG",coords:[41.8057,123.4315]},{cn:"青岛",en:"QINGDAO",coords:[36.0671,120.3826]},{cn:"昆明",en:"KUNMING",coords:[25.0406,102.7123]},{cn:"济南",en:"JINAN",coords:[36.6512,117.0249]},{cn:"哈尔滨",en:"HARBIN",coords:[45.8038,126.5349]},{cn:"福州",en:"FUZHOU",coords:[26.0745,119.2965]},{cn:"厦门",en:"XIAMEN",coords:[24.4798,118.0894]},
-      {cn:"南宁",en:"NANNING",coords:[22.817,108.3665]},{cn:"太原",en:"TAIYUAN",coords:[37.8706,112.5489]},{cn:"长春",en:"CHANGCHUN",coords:[43.8171,125.3235]},{cn:"南昌",en:"NANCHANG",coords:[28.682,115.8579]},{cn:"合肥",en:"HEFEI",coords:[31.8206,117.2272]},{cn:"贵阳",en:"GUIYANG",coords:[26.647,106.6302]},{cn:"兰州",en:"LANZHOU",coords:[36.0611,103.8343]},{cn:"西宁",en:"XINING",coords:[36.6171,101.7782]},{cn:"银川",en:"YINCHUAN",coords:[38.4872,106.2309]},{cn:"呼和浩特",en:"HOHHOT",coords:[40.8425,111.7511]},{cn:"乌鲁木齐",en:"URUMQI",coords:[43.8256,87.6168]},{cn:"拉萨",en:"LHASA",coords:[29.6441,91.1145]},{cn:"海口",en:"HAIKOU",coords:[20.0174,110.3312]},{cn:"三亚",en:"SANYA",coords:[18.2528,109.5119]},{cn:"苏州",en:"SUZHOU",coords:[31.299,120.5853]},{cn:"无锡",en:"WUXI",coords:[31.4912,120.3119]},{cn:"宁波",en:"NINGBO",coords:[29.8683,121.544]},{cn:"温州",en:"WENZHOU",coords:[27.9943,120.6993]},{cn:"佛山",en:"FOSHAN",coords:[23.0215,113.1227]},{cn:"东莞",en:"DONGGUAN",coords:[23.0205,113.7518]},{cn:"大连",en:"DALIAN",coords:[38.914,121.6147]},{cn:"烟台",en:"YANTAI",coords:[37.3999,121.2664]},{cn:"唐山",en:"TANGSHAN",coords:[39.6306,118.1802]},{cn:"徐州",en:"XUZHOU",coords:[34.2048,117.2841]},{cn:"常州",en:"CHANGZHOU",coords:[31.8112,119.9737]},{cn:"南通",en:"NANTONG",coords:[31.9802,120.8943]},{cn:"潍坊",en:"WEIFANG",coords:[36.7067,119.1583]},{cn:"绍兴",en:"SHAOXING",coords:[30.0024,120.5821]},{cn:"嘉兴",en:"JIAXING",coords:[30.7453,120.7555]},{cn:"台州",en:"TAIZHOU",coords:[28.6564,121.4208]},{cn:"扬州",en:"YANGZHOU",coords:[32.3942,119.4129]},{cn:"盐城",en:"YANCHENG",coords:[33.3474,120.1636]},{cn:"临沂",en:"LINYI",coords:[35.0607,118.3564]},{cn:"洛阳",en:"LUOYANG",coords:[34.6197,112.454]},{cn:"宜昌",en:"YICHANG",coords:[30.6983,111.2908]},{cn:"襄阳",en:"XIANGYANG",coords:[32.0084,112.1225]},{cn:"株洲",en:"ZHUZHOU",coords:[27.8275,113.1331]},{cn:"赣州",en:"GANZHOU",coords:[25.831,114.935]},{cn:"柳州",en:"LIUZHOU",coords:[24.3256,109.4159]},{cn:"桂林",en:"GUILIN",coords:[25.2736,110.29]},{cn:"绵阳",en:"MIANYANG",coords:[31.4674,104.6791]},{cn:"遵义",en:"ZUNYI",coords:[27.705,106.933]},{cn:"大理",en:"DALI",coords:[25.6065,100.26]},{cn:"喀什",en:"KASHGAR",coords:[39.4677,75.9892]},{cn:"伊宁",en:"YINING",coords:[43.911,81.324]},{cn:"日喀则",en:"SHIGATSE",coords:[29.266,88.88]},{cn:"昌都",en:"CHAMDO",coords:[31.138,97.178]},{cn:"林芝",en:"NYINGCHI",coords:[29.654,94.362]},{cn:"阿尔泰",en:"ALTAY",coords:[47.828,88.134]},{cn:"库尔勒",en:"KORLA",coords:[41.722,86.175]},{cn:"酒泉",en:"JIUQUAN",coords:[39.732,98.494]},{cn:"张掖",en:"ZHANGYE",coords:[38.925,100.449]},{cn:"延安",en:"YAN'AN",coords:[36.585,109.489]},{cn:"榆林",en:"YULIN",coords:[38.285,109.736]},{cn:"大同",en:"DATONG",coords:[40.076,113.3]},{cn:"秦皇岛",en:"QINHUANGDAO",coords:[39.935,119.585]},{cn:"保定",en:"BAODING",coords:[38.867,115.464]},{cn:"淄博",en:"ZIBO",coords:[36.813,118.055]},{cn:"威海",en:"WEIHAI",coords:[37.513,122.12]},{cn:"三沙",en:"SANSHA",coords:[16.83,112.33]},
-      {cn:"连云港",en:"LIANYUNGANG",coords:[34.596,119.221]},{cn:"泰州",en:"TAIZHOU",coords:[32.455,119.922]},{cn:"湖州",en:"HUZHOU",coords:[30.867,120.094]},{cn:"金华",en:"JINHUA",coords:[29.078,119.647]},{cn:"衢州",en:"QUZHOU",coords:[28.956,118.872]},{cn:"舟山",en:"ZHOUSHAN",coords:[29.985,122.207]},{cn:"芜湖",en:"WUHU",coords:[31.352,118.384]},{cn:"马鞍山",en:"MA'ANSHAN",coords:[31.67,118.506]},{cn:"安庆",en:"ANQING",coords:[30.508,117.058]},{cn:"黄山",en:"HUANGSHAN",coords:[29.714,118.337]},{cn:"泉州",en:"QUANZHOU",coords:[24.874,118.675]},{cn:"漳州",en:"ZHANGZHOU",coords:[24.513,117.647]},{cn:"九江",en:"JIUJIANG",coords:[29.705,115.992]},{cn:"景德镇",en:"JINGDEZHEN",coords:[29.269,117.178]},{cn:"开封",en:"KAIFENG",coords:[34.797,114.307]},{cn:"平顶山",en:"PINGDINGSHAN",coords:[33.766,113.192]},{cn:"安阳",en:"ANYANG",coords:[36.109,114.392]},{cn:"新乡",en:"XINXIANG",coords:[35.303,113.926]},{cn:"十堰",en:"SHIYAN",coords:[32.629,110.798]},{cn:"荆州",en:"JINGZHOU",coords:[30.334,112.239]},{cn:"黄冈",en:"HUANGGANG",coords:[30.454,114.872]},{cn:"岳阳",en:"YUEYANG",coords:[29.356,113.129]},{cn:"常德",en:"CHANGDE",coords:[29.031,111.698]},{cn:"湘潭",en:"XIANGTAN",coords:[27.829,112.944]},{cn:"衡阳",en:"HENGYANG",coords:[26.893,112.571]},{cn:"郴州",en:"CHENZHOU",coords:[25.77,113.014]},{cn:"韶关",en:"SHAOGUAN",coords:[24.81,113.597]},{cn:"珠海",en:"ZHUHAI",coords:[22.27,113.576]},{cn:"中山",en:"ZHONGSHAN",coords:[22.517,113.392]},{cn:"江门",en:"JIANGMEN",coords:[22.578,113.081]},{cn:"湛江",en:"ZHANJIANG",coords:[21.27,110.359]},{cn:"汕头",en:"SHANTOU",coords:[23.354,116.681]},{cn:"潮州",en:"CHAOZHOU",coords:[23.657,116.622]},{cn:"惠州",en:"HUIZHOU",coords:[23.111,114.416]},{cn:"梅州",en:"MEIZHOU",coords:[24.288,116.122]},{cn:"肇庆",en:"ZHAOQING",coords:[23.051,112.465]},{cn:"清远",en:"QINGYUAN",coords:[23.681,113.056]},{cn:"北海",en:"BEIHAI",coords:[21.481,109.119]},{cn:"防城港",en:"FANGCHENGGANG",coords:[21.686,108.354]},{cn:"钦州",en:"QINZHOU",coords:[21.973,108.654]},{cn:"万州",en:"WANZHOU",coords:[30.807,108.401]},{cn:"攀枝花",en:"PANZHIHUA",coords:[26.581,101.718]},{cn:"泸州",en:"LUZHOU",coords:[28.871,105.441]},{cn:"乐山",en:"LESHAN",coords:[29.552,103.765]},{cn:"南充",en:"NANCHONG",coords:[30.837,106.11]},{cn:"宜宾",en:"YIBIN",coords:[28.751,104.643]},{cn:"广安",en:"GUANG'AN",coords:[30.456,106.64]},{cn:"六盘水",en:"LIUPANSHUI",coords:[26.591,104.83]},{cn:"安顺",en:"ANSHUN",coords:[26.253,105.946]},{cn:"曲靖",en:"QUJING",coords:[25.49,103.796]},{cn:"玉溪",en:"YUXI",coords:[24.352,102.546]},{cn:"保山",en:"BAOSHAN",coords:[25.111,99.167]},{cn:"昭通",en:"ZHAOTONG",coords:[27.336,103.717]},{cn:"丽江",en:"LIJIANG",coords:[26.872,100.222]},{cn:"普洱",en:"PU'ER",coords:[22.787,100.966]},{cn:"临沧",en:"LINCANG",coords:[23.877,100.079]},{cn:"铜川",en:"TONGCHUAN",coords:[34.896,108.945]},{cn:"咸阳",en:"XIANYANG",coords:[34.329,108.708]},{cn:"渭南",en:"WEINAN",coords:[34.499,109.502]},{cn:"汉中",en:"HANZHONG",coords:[33.067,107.023]},{cn:"天水",en:"TIANSHUI",coords:[34.58,105.724]},{cn:"武威",en:"WUWEI",coords:[37.928,102.637]},{cn:"金昌",en:"JINCHANG",coords:[38.52,102.193]},{cn:"白银",en:"BAIYIN",coords:[36.544,104.137]},{cn:"平凉",en:"PINGLIANG",coords:[35.542,106.665]},{cn:"海东",en:"HAIDONG",coords:[36.502,102.103]},{cn:"石嘴山",en:"SHIZUISHAN",coords:[39.013,106.376]},{cn:"吴忠",en:"WUZHONG",coords:[37.997,106.198]},{cn:"固原",en:"GUYUAN",coords:[36.002,106.285]},{cn:"吐鲁番",en:"TURPAN",coords:[42.946,89.177]},{cn:"哈密",en:"HAMI",coords:[42.818,93.515]},{cn:"阿克苏",en:"AKSU",coords:[41.17,80.26]},{cn:"阿勒泰",en:"ALTAY",coords:[47.84,88.13]},{cn:"塔城",en:"TACHENG",coords:[46.74,82.98]},{cn:"博乐",en:"BOLE",coords:[44.9,82.07]},{cn:"昌吉",en:"CHANGJI",coords:[44.01,87.31]},{cn:"儋州",en:"DANZHOU",coords:[19.52,109.57]},{cn:"包头",en:"BAOTOU",coords:[40.65,109.84]},{cn:"赤峰",en:"CHIFENG",coords:[42.26,118.96]},{cn:"通辽",en:"TONGLIAO",coords:[43.61,122.26]},{cn:"鄂尔多斯",en:"ORDOS",coords:[39.6,109.78]},{cn:"海拉尔",en:"HAILAR",coords:[49.21,119.76]},{cn:"满洲里",en:"MANZHOULI",coords:[49.58,117.44]},{cn:"鞍山",en:"ANSHAN",coords:[41.1,122.99]},{cn:"抚顺",en:"FUSHUN",coords:[41.88,123.95]},{cn:"本溪",en:"BENXI",coords:[41.29,123.76]},{cn:"丹东",en:"DANDONG",coords:[40.12,124.38]},{cn:"锦州",en:"JINZHOU",coords:[41.1,121.12]},{cn:"营口",en:"YINGKOU",coords:[40.66,122.22]},{cn:"吉林",en:"JILIN",coords:[43.84,126.54]},{cn:"延吉",en:"YANJI",coords:[42.9,129.5]},{cn:"牡丹江",en:"MUDANJIANG",coords:[44.55,129.6]},{cn:"齐齐哈尔",en:"QIQIHAR",coords:[47.35,123.91]},{cn:"大庆",en:"DAQING",coords:[46.58,125.1]},{cn:"佳木斯",en:"JIAMUSI",coords:[46.8,130.31]},{cn:"漠河",en:"MOHE",coords:[52.97,122.53]},{cn:"瑞丽",en:"RUILI",coords:[24.01,97.85]},{cn:"凭祥",en:"PINGXIANG",coords:[22.1,106.75]},{cn:"腾冲",en:"TENGCHONG",coords:[25.02,98.49]},{cn:"景洪",en:"JINGHONG",coords:[22.0,100.8]},{cn:"个旧",en:"GEJIU",coords:[23.36,103.15]},{cn:"义乌",en:"YIWU",coords:[29.3,120.07]},{cn:"昆山",en:"KUNSHAN",coords:[31.38,120.98]},{cn:"江阴",en:"JIANGYIN",coords:[31.91,120.28]},{cn:"慈溪",en:"CIXI",coords:[30.17,121.26]},{cn:"开远",en:"KAIYUAN",coords:[23.7,103.25]},{cn:"诸暨",en:"ZHUJI",coords:[29.71,120.24]},{cn:"常熟",en:"CHANGSHU",coords:[31.65,120.75]},{cn:"太仓",en:"TAICANG",coords:[31.45,121.12]},{cn:"张家港",en:"ZHANGJIAGANG",coords:[31.87,120.55]},{cn:"晋江",en:"JINJIANG",coords:[24.78,118.55]}
+      {cn:"北京",coords:[39.9042,116.4074]},{cn:"上海",coords:[31.2304,121.4737]},{cn:"广州",coords:[23.1291,113.2644]},{cn:"深圳",coords:[22.5431,114.0579]},{cn:"成都",coords:[30.5728,104.0668]},{cn:"重庆",coords:[29.563,106.5516]},{cn:"杭州",coords:[30.2741,120.1551]},{cn:"西安",coords:[34.3416,108.9398]},{cn:"武汉",coords:[30.5928,114.3055]},{cn:"南京",coords:[32.0603,118.7969]},{cn:"天津",coords:[39.0842,117.201]},{cn:"郑州",coords:[34.7466,113.6253]},{cn:"长沙",coords:[28.2282,112.9388]},{cn:"沈阳",coords:[41.8057,123.4315]},{cn:"青岛",coords:[36.0671,120.3826]},{cn:"昆明",coords:[25.0406,102.7123]},{cn:"济南",coords:[36.6512,117.0249]},{cn:"哈尔滨",coords:[45.8038,126.5349]},{cn:"福州",coords:[26.0745,119.2965]},{cn:"厦门",coords:[24.4798,118.0894]},
+      {cn:"南宁",coords:[22.817,108.3665]},{cn:"太原",coords:[37.8706,112.5489]},{cn:"长春",coords:[43.8171,125.3235]},{cn:"南昌",coords:[28.682,115.8579]},{cn:"合肥",coords:[31.8206,117.2272]},{cn:"贵阳",coords:[26.647,106.6302]},{cn:"兰州",coords:[36.0611,103.8343]},{cn:"西宁",coords:[36.6171,101.7782]},{cn:"银川",coords:[38.4872,106.2309]},{cn:"呼和浩特",coords:[40.8425,111.7511]},{cn:"乌鲁木齐",coords:[43.8256,87.6168]},{cn:"拉萨",coords:[29.6441,91.1145]},{cn:"海口",coords:[20.0174,110.3312]},{cn:"三亚",coords:[18.2528,109.5119]},{cn:"苏州",coords:[31.299,120.5853]},{cn:"无锡",coords:[31.4912,120.3119]},{cn:"宁波",coords:[29.8683,121.544]},{cn:"温州",coords:[27.9943,120.6993]},{cn:"佛山",coords:[23.0215,113.1227]},{cn:"东莞",coords:[23.0205,113.7518]},{cn:"大连",coords:[38.914,121.6147]},{cn:"烟台",coords:[37.3999,121.2664]},{cn:"唐山",coords:[39.6306,118.1802]},{cn:"徐州",coords:[34.2048,117.2841]},{cn:"常州",coords:[31.8112,119.9737]},{cn:"南通",coords:[31.9802,120.8943]},{cn:"潍坊",coords:[36.7067,119.1583]},{cn:"绍兴",coords:[30.0024,120.5821]},{cn:"嘉兴",coords:[30.7453,120.7555]},{cn:"台州",coords:[28.6564,121.4208]},{cn:"扬州",coords:[32.3942,119.4129]},{cn:"盐城",coords:[33.3474,120.1636]},{cn:"临沂",coords:[35.0607,118.3564]},{cn:"洛阳",coords:[34.6197,112.454]},{cn:"宜昌",coords:[30.6983,111.2908]},{cn:"襄阳",coords:[32.0084,112.1225]},{cn:"株洲",coords:[27.8275,113.1331]},{cn:"赣州",coords:[25.831,114.935]},{cn:"柳州",coords:[24.3256,109.4159]},{cn:"桂林",coords:[25.2736,110.29]},{cn:"绵阳",coords:[31.4674,104.6791]},{cn:"遵义",coords:[27.705,106.933]},{cn:"大理",coords:[25.6065,100.26]},{cn:"喀什",coords:[39.4677,75.9892]},{cn:"伊宁",coords:[43.911,81.324]},{cn:"日喀则",coords:[29.266,88.88]},{cn:"昌都",coords:[31.138,97.178]},{cn:"林芝",coords:[29.654,94.362]},{cn:"阿尔泰",coords:[47.828,88.134]},{cn:"库尔勒",coords:[41.722,86.175]},{cn:"酒泉",coords:[39.732,98.494]},{cn:"张掖",coords:[38.925,100.449]},{cn:"延安",coords:[36.585,109.489]},{cn:"榆林",coords:[38.285,109.736]},{cn:"大同",coords:[40.076,113.3]},{cn:"秦皇岛",coords:[39.935,119.585]},{cn:"保定",coords:[38.867,115.464]},{cn:"淄博",coords:[36.813,118.055]},{cn:"威海",coords:[37.513,122.12]},{cn:"三沙",coords:[16.83,112.33]},
+      {cn:"连云港",coords:[34.596,119.221]},{cn:"泰州",coords:[32.455,119.922]},{cn:"湖州",coords:[30.867,120.094]},{cn:"金华",coords:[29.078,119.647]},{cn:"衢州",coords:[28.956,118.872]},{cn:"舟山",coords:[29.985,122.207]},{cn:"芜湖",coords:[31.352,118.384]},{cn:"马鞍山",coords:[31.67,118.506]},{cn:"安庆",coords:[30.508,117.058]},{cn:"黄山",coords:[29.714,118.337]},{cn:"泉州",coords:[24.874,118.675]},{cn:"漳州",coords:[24.513,117.647]},{cn:"九江",coords:[29.705,115.992]},{cn:"景德镇",coords:[29.269,117.178]},{cn:"开封",coords:[34.797,114.307]},{cn:"平顶山",coords:[33.766,113.192]},{cn:"安阳",coords:[36.109,114.392]},{cn:"新乡",coords:[35.303,113.926]},{cn:"十堰",coords:[32.629,110.798]},{cn:"荆州",coords:[30.334,112.239]},{cn:"黄冈",coords:[30.454,114.872]},{cn:"岳阳",coords:[29.356,113.129]},{cn:"常德",coords:[29.031,111.698]},{cn:"湘潭",coords:[27.829,112.944]},{cn:"衡阳",coords:[26.893,112.571]},{cn:"郴州",coords:[25.77,113.014]},{cn:"韶关",coords:[24.81,113.597]},{cn:"珠海",coords:[22.27,113.576]},{cn:"中山",coords:[22.517,113.392]},{cn:"江门",coords:[22.578,113.081]},{cn:"湛江",coords:[21.27,110.359]},{cn:"汕头",coords:[23.354,116.681]},{cn:"潮州",coords:[23.657,116.622]},{cn:"惠州",coords:[23.111,114.416]},{cn:"梅州",coords:[24.288,116.122]},{cn:"肇庆",coords:[23.051,112.465]},{cn:"清远",coords:[23.681,113.056]},{cn:"北海",coords:[21.481,109.119]},{cn:"防城港",coords:[21.686,108.354]},{cn:"钦州",coords:[21.973,108.654]},{cn:"万州",coords:[30.807,108.401]},{cn:"攀枝花",coords:[26.581,101.718]},{cn:"泸州",coords:[28.871,105.441]},{cn:"乐山",coords:[29.552,103.765]},{cn:"南充",coords:[30.837,106.11]},{cn:"宜宾",coords:[28.751,104.643]},{cn:"广安",coords:[30.456,106.64]},{cn:"六盘水",coords:[26.591,104.83]},{cn:"安顺",coords:[26.253,105.946]},{cn:"曲靖",coords:[25.49,103.796]},{cn:"玉溪",coords:[24.352,102.546]},{cn:"保山",coords:[25.111,99.167]},{cn:"昭通",coords:[27.336,103.717]},{cn:"丽江",coords:[26.872,100.222]},{cn:"普洱",coords:[22.787,100.966]},{cn:"临沧",coords:[23.877,100.079]},{cn:"铜川",coords:[34.896,108.945]},{cn:"咸阳",coords:[34.329,108.708]},{cn:"渭南",coords:[34.499,109.502]},{cn:"汉中",coords:[33.067,107.023]},{cn:"天水",coords:[34.58,105.724]},{cn:"武威",coords:[37.928,102.637]},{cn:"金昌",coords:[38.52,102.193]},{cn:"白银",coords:[36.544,104.137]},{cn:"平凉",coords:[35.542,106.665]},{cn:"海东",coords:[36.502,102.103]},{cn:"石嘴山",coords:[39.013,106.376]},{cn:"吴忠",coords:[37.997,106.198]},{cn:"固原",coords:[36.002,106.285]},{cn:"吐鲁番",coords:[42.946,89.177]},{cn:"哈密",coords:[42.818,93.515]},{cn:"阿克苏",coords:[41.17,80.26]},{cn:"阿勒泰",coords:[47.84,88.13]},{cn:"塔城",coords:[46.74,82.98]},{cn:"博乐",coords:[44.9,82.07]},{cn:"昌吉",coords:[44.01,87.31]},{cn:"儋州",coords:[19.52,109.57]},{cn:"包头",coords:[40.65,109.84]},{cn:"赤峰",coords:[42.26,118.96]},{cn:"通辽",coords:[43.61,122.26]},{cn:"鄂尔多斯",coords:[39.6,109.78]},{cn:"海拉尔",coords:[49.21,119.76]},{cn:"满洲里",coords:[49.58,117.44]},{cn:"鞍山",coords:[41.1,122.99]},{cn:"抚顺",coords:[41.88,123.95]},{cn:"本溪",coords:[41.29,123.76]},{cn:"丹东",coords:[40.12,124.38]},{cn:"锦州",coords:[41.1,121.12]},{cn:"营口",coords:[40.66,122.22]},{cn:"吉林",coords:[43.84,126.54]},{cn:"延吉",coords:[42.9,129.5]},{cn:"牡丹江",coords:[44.55,129.6]},{cn:"齐齐哈尔",coords:[47.35,123.91]},{cn:"大庆",coords:[46.58,125.1]},{cn:"佳木斯",coords:[46.8,130.31]},{cn:"漠河",coords:[52.97,122.53]},{cn:"瑞丽",coords:[24.01,97.85]},{cn:"凭祥",coords:[22.1,106.75]},{cn:"腾冲",coords:[25.02,98.49]},{cn:"景洪",coords:[22.0,100.8]},{cn:"个旧",coords:[23.36,103.15]},{cn:"义乌",coords:[29.3,120.07]},{cn:"昆山",coords:[31.38,120.98]},{cn:"江阴",coords:[31.91,120.28]},{cn:"慈溪",coords:[30.17,121.26]},{cn:"开远",coords:[23.7,103.25]},{cn:"诸暨",coords:[29.71,120.24]},{cn:"常熟",coords:[31.65,120.75]},{cn:"太仓",coords:[31.45,121.12]},{cn:"张家港",coords:[31.87,120.55]},{cn:"晋江",coords:[24.78,118.55]}
     ];
 
     let cities=[], idx=0, score=0, startTime, timer, started=false, isProcessing=false;
     let currentClickPos = null, playerMarker = null, targetMarker = null, connectorLine = null;
 
-    // 初始化地图：使用具有中文注记的暗色瓦片
+    // 初始化地图：使用高德深色中文图源
     const map = L.map('map',{zoomControl:false, attributionControl: false}).setView([35, 105], 4);
     
-    // 使用 CartoDB 的暗色无注记层作为底图
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
-    // 叠加中文注记层（使用天地图或其他支持中文的透明注记，这里使用CartoDB注记作为示例，实际中文标注通常随瓦片提供）
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png').addTo(map);
+    // 高德深色瓦片 (包含中文注记)
+    L.tileLayer('http://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}').addTo(map);
 
     function startGame() {
       if(started) return;
@@ -116,7 +110,7 @@
       belt.innerHTML = '';
       cities.forEach(c => {
         const el = document.createElement('div'); el.className = 'city-card';
-        el.innerHTML = `<span class="city-name-en">${c.en}</span><span class="city-name-cn">${c.cn}</span>`;
+        el.innerHTML = `<span class="city-name-cn">${c.cn}</span>`;
         belt.appendChild(el);
       });
 
@@ -157,14 +151,13 @@
       const city = cities[idx];
       const dist = haversine([currentClickPos.lat, currentClickPos.lng], city.coords);
       
-      // 得分算法优化：中国疆域辽阔，450km 为衰减系数
+      // 距离系数优化 (450km)
       const points = Math.round(5000 * Math.pow(Math.E, -dist / 450));
       document.getElementById('confirmContainer').style.display = 'none';
 
       targetMarker = L.circleMarker(city.coords, {radius: 12, color: '#fff', fillColor: '#fbbf24', weight: 4, fillOpacity: 1}).addTo(map);
       connectorLine = L.polyline([currentClickPos, city.coords], {color: '#fff', weight: 3, dashArray: '10, 10', opacity: 0.6}).addTo(map);
 
-      // 分数动画
       const clickPoint = map.latLngToContainerPoint(currentClickPos);
       const particle = document.createElement('div');
       particle.className = 'fly-particle';
@@ -183,10 +176,7 @@
 
       setTimeout(() => {
         score += points;
-        const scoreEl = document.getElementById('score');
-        scoreEl.textContent = score;
-        scoreEl.classList.add('score-bump');
-        setTimeout(() => scoreEl.classList.remove('score-bump'), 300);
+        document.getElementById('score').textContent = score;
         particle.remove();
       }, 900);
 
@@ -214,7 +204,6 @@
       document.getElementById('endModal').style.display = 'flex';
     }
 
-    // 快捷键支持
     window.addEventListener('keydown', e => {
       if(e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
