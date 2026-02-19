@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GEO-SCANNER SPECTRA</title>
+  <title>GEO-SCANNER INTEL</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
@@ -15,136 +15,120 @@
       --bg: #0a0c10;
     }
 
-    html, body { height: 100%; margin: 0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); overflow: hidden; }
+    html, body { height: 100%; margin: 0; font-family: 'PingFang SC', sans-serif; background: var(--bg); overflow: hidden; }
     #map { height: 100vh; width: 100vw; z-index: 1; }
 
-    /* 頂部漸層 UI - 移除帶狀感 */
+    /* 頂部漸層 UI */
     .header-ui { 
-        position: absolute; top: 0; left: 0; width: 100%; height: 160px; 
-        background: linear-gradient(to bottom, 
-            rgba(10, 20, 30, 0.95) 0%, 
-            rgba(10, 20, 30, 0.6) 50%, 
-            rgba(10, 20, 30, 0) 100%); 
+        position: absolute; top: 0; left: 0; width: 100%; height: 140px; 
+        background: linear-gradient(to bottom, rgba(10, 20, 30, 0.9) 0%, rgba(10, 20, 30, 0) 100%); 
         z-index: 1001; pointer-events: none;
-        display: flex; flex-direction: column; align-items: center;
     }
-    
-    /* 掃描線特效裝飾 */
-    .header-ui::after {
-        content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: repeating-linear-gradient(0deg, rgba(0,243,255,0.05) 0px, transparent 2px);
-        pointer-events: none;
-    }
+    .conveyor-viewport { width: 100%; height: 90px; overflow: hidden; position: relative; margin-top: 10px; }
+    .conveyor-belt { display: flex; align-items: center; position: absolute; left: 50%; transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1); }
+    .city-card { min-width: 200px; text-align: center; opacity: 0.1; transform: scale(0.8); transition: 0.5s; }
+    .city-card.active { opacity: 1; transform: scale(1.1); }
+    .city-name-cn { font-size: 2.5rem; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 0 15px var(--cyan); }
 
-    .conveyor-viewport { width: 100%; height: 110px; overflow: hidden; position: relative; margin-top: 10px; }
-    .conveyor-belt { 
-        display: flex; align-items: center; position: absolute; left: 50%; 
-        transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-        height: 100%;
+    /* 右下角情報窗 - 酷動畫 */
+    #intelBox {
+        position: absolute; bottom: 30px; right: 30px; width: 280px; z-index: 1002;
+        background: rgba(0, 20, 30, 0.85); border: 1px solid var(--cyan);
+        padding: 20px; color: #fff; backdrop-filter: blur(10px);
+        box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+        display: none; clip-path: inset(0 0 100% 0); /* 初始裁切為隱藏 */
     }
-    
-    .city-card { 
-        min-width: 220px; text-align: center; opacity: 0.15; transform: scale(0.85); transition: 0.5s;
-        display: flex; flex-direction: column; justify-content: center; height: 100%;
+    .intel-active { animation: revealBox 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+    @keyframes revealBox {
+        from { clip-path: inset(0 0 100% 0); transform: translateY(20px); }
+        to { clip-path: inset(0 0 0 0); transform: translateY(0); }
     }
-    .city-card.active { 
-        opacity: 1; transform: scale(1.1); 
-        text-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
-    }
-    
-    .city-name-cn { font-size: 2.8rem; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 4px; letter-spacing: 2px; }
-    .city-name-en { font-size: 0.8rem; color: var(--cyan); letter-spacing: 3px; font-weight: bold; text-transform: uppercase; }
+    .intel-header { font-size: 0.7rem; color: var(--cyan); border-bottom: 1px solid var(--cyan); margin-bottom: 10px; padding-bottom: 5px; letter-spacing: 2px; }
+    .intel-content { font-size: 0.9rem; line-height: 1.6; opacity: 0.9; }
 
-    /* 噴射分數 */
+    /* 分數噴射 */
     .score-burst {
-        position: fixed; pointer-events: none; color: var(--gold); font-size: 3.5rem; font-weight: 900;
-        z-index: 9999; text-shadow: 3px 3px 0px #000;
-        animation: burst 1.2s cubic-bezier(0.15, 0.85, 0.35, 1) forwards;
+        position: fixed; pointer-events: none; color: var(--gold); font-size: 3rem; font-weight: 900;
+        z-index: 9999; text-shadow: 2px 2px 0 #000; animation: burst 1s forwards;
     }
     @keyframes burst {
-        0% { transform: scale(0) rotate(-20deg); opacity: 0; }
-        30% { opacity: 1; transform: scale(1.2) rotate(0deg); }
-        100% { transform: scale(1) translate(var(--tx), var(--ty)) rotate(10deg); opacity: 0; }
+        0% { transform: scale(0); opacity: 0; }
+        50% { opacity: 1; }
+        100% { transform: scale(1.2) translate(var(--tx), var(--ty)); opacity: 0; }
     }
 
-    /* 底部 UI */
-    .stats-panel { 
-        position: absolute; bottom: 25px; left: 25px; z-index: 1002; 
-        background: rgba(5, 10, 15, 0.85); padding: 12px 25px; 
-        border: 1px solid rgba(0, 243, 255, 0.3); border-left: 4px solid var(--cyan);
-        display: flex; gap: 40px; border-radius: 4px; backdrop-filter: blur(8px);
-    }
-    .stat-val { font-family: 'Courier New', monospace; font-size: 1.6rem; color: #fff; font-weight: bold; }
+    /* 通用 UI */
+    .stats-panel { position: absolute; bottom: 25px; left: 25px; z-index: 1002; display: flex; gap: 30px; background: rgba(0,0,0,0.7); padding: 10px 20px; border-left: 3px solid var(--cyan); }
+    .stat-label { color: var(--cyan); font-size: 0.6rem; display: block; }
+    .stat-val { color: #fff; font-size: 1.4rem; font-weight: bold; font-family: monospace; }
     
     #confirmContainer { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 1005; display: none; }
-    .btn-confirm { 
-        background: var(--cyan); color: #000; border: none; padding: 14px 60px; 
-        font-size: 1.3rem; font-weight: 900; cursor: pointer; border-radius: 50px;
-        box-shadow: 0 0 30px rgba(0, 243, 255, 0.4); transition: 0.2s;
-    }
-    .btn-confirm:hover { transform: scale(1.05); filter: brightness(1.1); }
-
-    .modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2000; background: #05070a; }
-    .start-box { text-align: center; border: 1px solid var(--cyan); padding: 50px; background: rgba(0, 243, 255, 0.05); }
+    .btn-confirm { background: var(--cyan); color: #000; border: none; padding: 12px 50px; font-size: 1.1rem; font-weight: 900; cursor: pointer; box-shadow: 0 0 20px var(--cyan); }
+    
+    .modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2000; background: #000; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="header-ui">
-    <div class="conveyor-viewport" id="viewport" style="display:none">
-        <div class="conveyor-belt" id="belt"></div>
-    </div>
-  </div>
+  <div class="header-ui"><div class="conveyor-viewport" id="viewport" style="display:none"><div class="conveyor-belt" id="belt"></div></div></div>
   
   <div class="stats-panel" id="statsPanel" style="display:none">
-    <div><small style="color:var(--cyan); letter-spacing:2px;">GLOBAL SCORE</small><div id="score" class="stat-val">0</div></div>
-    <div><small style="color:var(--cyan); letter-spacing:2px;">TARGET INDEX</small><div class="stat-val"><span id="progress">0</span> / <span id="total">0</span></div></div>
+    <div><span class="stat-label">SCORE</span><div id="score" class="stat-val">0</div></div>
+    <div><span class="stat-label">PROGRESS</span><div class="stat-val"><span id="progress">0</span>/<span id="total">0</span></div></div>
   </div>
 
-  <div id="confirmContainer"><button class="btn-confirm" id="confirmBtn">LOCK COORDINATES</button></div>
+  <div id="intelBox">
+    <div class="intel-header">DECODING INTELLIGENCE...</div>
+    <div class="intel-content" id="intelBody"></div>
+  </div>
+
+  <div id="confirmContainer"><button class="btn-confirm" id="confirmBtn">LOCK [SPACE]</button></div>
 
   <div id="startModal" class="modal-overlay">
-    <div class="start-box">
-      <h2 style="color:var(--cyan); letter-spacing:12px; margin:0 0 10px 0;">GEO-SCANNER</h2>
-      <p style="color:rgba(255,255,255,0.4); font-size:0.8rem; margin-bottom:30px;">MAINLAND CHINA DATABASE v2.4</p>
-      <div style="font-size: 6rem; color:#fff; font-weight:900;" id="countDisplay">50</div>
-      <input type="range" id="citySlider" min="5" max="300" value="50" style="width:100%; margin:30px 0; cursor:pointer;">
-      <button id="startBtn" style="width:100%; padding:18px; background:var(--cyan); font-weight:900; cursor:pointer; border:none; letter-spacing:4px;">INITIALIZE SCAN</button>
+    <div style="text-align:center; border:1px solid var(--cyan); padding:40px;">
+      <h2 style="color:var(--cyan); letter-spacing:8px;">GEO-SCANNER</h2>
+      <div style="font-size:5rem; color:#fff;" id="countDisplay">50</div>
+      <input type="range" id="citySlider" min="5" max="300" value="50" style="width:100%; margin:20px 0;">
+      <button id="startBtn" style="width:100%; padding:15px; background:var(--cyan); font-weight:900; cursor:pointer;">BOOT SYSTEM</button>
     </div>
   </div>
 
   <script>
-    // 已去除台灣城市
+    // 數據庫（帶簡介）
     const DB = [
-      {cn:"北京",en:"BEIJING",coords:[39.9,116.4]},{cn:"上海",en:"SHANGHAI",coords:[31.2,121.4]},{cn:"廣州",en:"GUANGZHOU",coords:[23.1,113.2]},{cn:"深圳",en:"SHENZHEN",coords:[22.5,114.0]},{cn:"成都",en:"CHENGDU",coords:[30.5,104.0]},{cn:"重慶",en:"CHONGQING",coords:[29.5,106.5]},{cn:"杭州",en:"HANGZHOU",coords:[30.2,120.1]},{cn:"西安",en:"XI'AN",coords:[34.3,108.9]},{cn:"武漢",en:"WUHAN",coords:[30.5,114.3]},{cn:"南京",en:"NANJING",coords:[32.0,118.8]},{cn:"天津",en:"TIANJIN",coords:[39.0,117.2]},{cn:"鄭州",en:"ZHENGZHOU",coords:[34.7,113.6]},{cn:"長沙",en:"CHANGSHA",coords:[28.2,112.9]},{cn:"沈陽",en:"SHENYANG",coords:[41.8,123.4]},{cn:"青島",en:"QINGDAO",coords:[36.0,120.3]},{cn:"昆明",en:"KUNMING",coords:[25.0,102.7]},{cn:"大連",en:"DALIAN",coords:[38.9,121.6]},{cn:"廈門",en:"XIAMEN",coords:[24.4,118.0]},{cn:"哈爾濱",en:"HARBIN",coords:[45.8,126.5]},{cn:"烏魯木齊",en:"URUMQI",coords:[43.8,87.6]},{cn:"拉薩",en:"LHASA",coords:[29.6,91.1]},{cn:"三亞",en:"SANYA",coords:[18.2,109.5]},{cn:"石家莊",en:"SHIJIAZHUANG",coords:[38.0,114.5]},{cn:"南昌",en:"NANCHANG",coords:[28.6,115.8]},{cn:"濟南",en:"JINAN",coords:[36.6,117.0]},{cn:"南寧",en:"NANNING",coords:[22.8,108.3]},{cn:"貴陽",en:"GUIYANG",coords:[26.6,106.6]},{cn:"蘭州",en:"LANZHOU",coords:[36.0,103.8]},{cn:"海口",en:"HAIKOU",coords:[20.0,110.3]},{cn:"銀川",en:"YINCHUAN",coords:[38.4,106.2]},{cn:"西寧",en:"XINING",coords:[36.6,101.7]},{cn:"呼和浩特",en:"HOHHOT",coords:[40.8,111.7]}
+      {cn:"北京",en:"BEIJING",coords:[39.9,116.4],info:"中國首都，擁有三千餘年建城史，故宮、天安門所在地。"},
+      {cn:"上海",en:"SHANGHAI",coords:[31.2,121.4],info:"東方明珠，中國經濟中心，外灘萬國建築群聞名遐邇。"},
+      {cn:"廣州",en:"GUANGZHOU",coords:[23.1,113.2],info:"羊城、花城，海上絲路起點之一，食在廣州。"},
+      {cn:"西安",en:"XI'AN",coords:[34.3,108.9],info:"古稱長安，十三朝古都，秦始皇兵馬俑所在地。"},
+      {cn:"成都",en:"CHENGDU",coords:[30.5,104.0],info:"天府之國，大熊貓故鄉，以慢生活與麻辣火鍋著稱。"},
+      {cn:"烏魯木齊",en:"URUMQI",coords:[43.8,87.6],info:"世界上離海洋最遠的城市，古絲綢之路重要節點。"},
+      {cn:"三亞",en:"SANYA",coords:[18.2,109.5],info:"天涯海角，中國著名熱帶度假勝地，擁有絕美沙灘。"}
+      // 更多城市...
     ];
 
     let cities=[], idx=0, score=0, started=false, isProcessing=false;
-    let currentClickPos = null, playerMarker = null, targetMarker = null, connectorLine = null;
+    let currentClickPos, playerMarker, targetMarker, connectorLine;
 
-    const map = L.map('map',{zoomControl:false, attributionControl:false, worldCopyJump:true}).setView([35, 105], 4);
+    const map = L.map('map',{zoomControl:false, attributionControl:false}).setView([35, 105], 4);
     L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}').addTo(map);
 
-    const slider = document.getElementById('citySlider');
-    slider.oninput = () => document.getElementById('countDisplay').textContent = slider.value;
-
     function startGame() {
-      cities = [...DB].sort(()=>Math.random()-0.5).slice(0, parseInt(slider.value));
+      cities = [...DB].sort(()=>Math.random()-0.5).slice(0, document.getElementById('citySlider').value);
       document.getElementById('total').textContent = cities.length;
       document.getElementById('startModal').style.display = 'none';
       document.getElementById('viewport').style.display = 'block';
       document.getElementById('statsPanel').style.display = 'block';
-      
-      const belt = document.getElementById('belt');
-      belt.innerHTML = cities.map(c => `<div class="city-card"><span class="city-name-cn">${c.cn}</span><span class="city-name-en">${c.en}</span></div>`).join('');
+      document.getElementById('belt').innerHTML = cities.map(c => `<div class="city-card"><span class="city-name-cn">${c.cn}</span></div>`).join('');
       started = true;
       updateConveyor();
     }
 
     function updateConveyor() {
-      document.getElementById('belt').style.transform = `translateX(${-(idx * 220) - 110}px)`;
+      document.getElementById('belt').style.transform = `translateX(${-(idx * 200) - 100}px)`;
       document.querySelectorAll('.city-card').forEach((card, i) => card.classList.toggle('active', i === idx));
       document.getElementById('progress').textContent = idx + 1;
+      document.getElementById('intelBox').style.display = 'none'; // 隱藏上一個簡介
+      document.getElementById('intelBox').classList.remove('intel-active');
       isProcessing = false;
     }
 
@@ -152,9 +136,7 @@
       if(!started || isProcessing) return;
       currentClickPos = e.latlng;
       if(playerMarker) map.removeLayer(playerMarker);
-      playerMarker = L.circleMarker(e.latlng, {
-        radius: 10, color: '#000', fillColor: '#ff3366', weight: 3, fillOpacity: 1
-      }).addTo(map);
+      playerMarker = L.circleMarker(e.latlng, {radius:8, color:'#000', fillColor:'#ff3366', weight:3, fillOpacity:1}).addTo(map);
       document.getElementById('confirmContainer').style.display = 'block';
     });
 
@@ -167,20 +149,20 @@
       const dist = map.distance(currentClickPos, city.coords) / 1000;
       const points = Math.round(5000 * Math.pow(Math.E, -dist / 500));
       
-      // 第一階段：放大選區
       map.flyTo(currentClickPos, 7, { duration: 0.5 });
 
       setTimeout(() => {
         burstScore(points);
-        // 第二階段：雷射綠標記正確位置
-        targetMarker = L.circleMarker(city.coords, {
-          radius: 12, color: '#000', fillColor: '#00ff66', weight: 4, fillOpacity: 1
-        }).addTo(map);
-        connectorLine = L.polyline([currentClickPos, city.coords], {color: '#000', weight: 3, opacity: 0.6}).addTo(map);
-        
+        // 顯示情報簡介
+        const intelBox = document.getElementById('intelBox');
+        document.getElementById('intelBody').textContent = city.info || "情報缺失，這是一個神秘的城市。";
+        intelBox.style.display = 'block';
+        intelBox.classList.add('intel-active');
+
+        targetMarker = L.circleMarker(city.coords, {radius:10, color:'#000', fillColor:'#00ff66', weight:3, fillOpacity:1}).addTo(map);
+        connectorLine = L.polyline([currentClickPos, city.coords], {color:'#000', weight:2, dashArray:'5,5'}).addTo(map);
         score += points;
-        document.getElementById('score').textContent = score.toLocaleString();
-        // 平移到目標
+        document.getElementById('score').textContent = score;
         map.flyTo(city.coords, 8, { duration: 0.8 });
       }, 600);
 
@@ -189,34 +171,27 @@
         if(playerMarker) map.removeLayer(playerMarker);
         if(targetMarker) map.removeLayer(targetMarker);
         if(connectorLine) map.removeLayer(connectorLine);
-        if(idx < cities.length) { 
-            updateConveyor(); 
-            map.flyTo([35, 105], 4, { duration: 0.7 }); 
-        } else { alert("SCAN COMPLETE! FINAL SCORE: " + score); location.reload(); }
-      }, 2800);
+        if(idx < cities.length) { updateConveyor(); map.flyTo([35, 105], 4, { duration: 0.7 }); }
+        else { alert("SCAN COMPLETE! SCORE: " + score); location.reload(); }
+      }, 4000); // 延長停留時間，方便看簡介
     }
 
     function burstScore(pts) {
       const screenPos = map.latLngToContainerPoint(currentClickPos);
       const div = document.createElement('div');
       div.className = 'score-burst';
-      div.style.left = screenPos.x + 'px';
-      div.style.top = screenPos.y + 'px';
-      div.style.setProperty('--tx', (Math.random() * 200 - 100) + 'px');
-      div.style.setProperty('--ty', (-180 - Math.random() * 50) + 'px');
+      div.style.left = screenPos.x + 'px'; div.style.top = screenPos.y + 'px';
+      div.style.setProperty('--tx', (Math.random()*160-80)+'px');
+      div.style.setProperty('--ty', (-150)+'px');
       div.textContent = `+${pts}`;
       document.body.appendChild(div);
-      setTimeout(() => div.remove(), 1200);
+      setTimeout(() => div.remove(), 1000);
     }
 
-    window.addEventListener('keydown', e => {
-      if(e.code === 'Space' && document.getElementById('confirmContainer').style.display === 'block') {
-        e.preventDefault(); submitAnswer();
-      }
-    });
-
+    window.addEventListener('keydown', e => { if(e.code === 'Space' && document.getElementById('confirmContainer').style.display === 'block') submitAnswer(); });
     document.getElementById('startBtn').onclick = startGame;
     document.getElementById('confirmBtn').onclick = submitAnswer;
+    document.getElementById('citySlider').oninput = (e) => document.getElementById('countDisplay').textContent = e.target.value;
   </script>
 </body>
 </html>
