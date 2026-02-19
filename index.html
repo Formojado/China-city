@@ -1,122 +1,8 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GEO-SCANNER SPECTRA</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <style>
-    :root {
-      --cyan: #00f3ff;
-      --green: #00ff66;
-      --red: #ff3366;
-      --gold: #ffcc00;
-      --bg: #0a0c10;
-    }
-
-    html, body { height: 100%; margin: 0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); overflow: hidden; }
-    #map { height: 100vh; width: 100vw; z-index: 1; }
-
-    /* 頂部漸層 UI - 移除帶狀感 */
-    .header-ui { 
-        position: absolute; top: 0; left: 0; width: 100%; height: 160px; 
-        background: linear-gradient(to bottom, 
-            rgba(10, 20, 30, 0.95) 0%, 
-            rgba(10, 20, 30, 0.6) 50%, 
-            rgba(10, 20, 30, 0) 100%); 
-        z-index: 1001; pointer-events: none;
-        display: flex; flex-direction: column; align-items: center;
-    }
-    
-    /* 掃描線特效裝飾 */
-    .header-ui::after {
-        content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: repeating-linear-gradient(0deg, rgba(0,243,255,0.05) 0px, transparent 2px);
-        pointer-events: none;
-    }
-
-    .conveyor-viewport { width: 100%; height: 110px; overflow: hidden; position: relative; margin-top: 10px; }
-    .conveyor-belt { 
-        display: flex; align-items: center; position: absolute; left: 50%; 
-        transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-        height: 100%;
-    }
-    
-    .city-card { 
-        min-width: 220px; text-align: center; opacity: 0.15; transform: scale(0.85); transition: 0.5s;
-        display: flex; flex-direction: column; justify-content: center; height: 100%;
-    }
-    .city-card.active { 
-        opacity: 1; transform: scale(1.1); 
-        text-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
-    }
-    
-    .city-name-cn { font-size: 2.8rem; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 4px; letter-spacing: 2px; }
-    .city-name-en { font-size: 0.8rem; color: var(--cyan); letter-spacing: 3px; font-weight: bold; text-transform: uppercase; }
-
-    /* 噴射分數 */
-    .score-burst {
-        position: fixed; pointer-events: none; color: var(--gold); font-size: 3.5rem; font-weight: 900;
-        z-index: 9999; text-shadow: 3px 3px 0px #000;
-        animation: burst 1.2s cubic-bezier(0.15, 0.85, 0.35, 1) forwards;
-    }
-    @keyframes burst {
-        0% { transform: scale(0) rotate(-20deg); opacity: 0; }
-        30% { opacity: 1; transform: scale(1.2) rotate(0deg); }
-        100% { transform: scale(1) translate(var(--tx), var(--ty)) rotate(10deg); opacity: 0; }
-    }
-
-    /* 底部 UI */
-    .stats-panel { 
-        position: absolute; bottom: 25px; left: 25px; z-index: 1002; 
-        background: rgba(5, 10, 15, 0.85); padding: 12px 25px; 
-        border: 1px solid rgba(0, 243, 255, 0.3); border-left: 4px solid var(--cyan);
-        display: flex; gap: 40px; border-radius: 4px; backdrop-filter: blur(8px);
-    }
-    .stat-val { font-family: 'Courier New', monospace; font-size: 1.6rem; color: #fff; font-weight: bold; }
-    
-    #confirmContainer { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 1005; display: none; }
-    .btn-confirm { 
-        background: var(--cyan); color: #000; border: none; padding: 14px 60px; 
-        font-size: 1.3rem; font-weight: 900; cursor: pointer; border-radius: 50px;
-        box-shadow: 0 0 30px rgba(0, 243, 255, 0.4); transition: 0.2s;
-    }
-    .btn-confirm:hover { transform: scale(1.05); filter: brightness(1.1); }
-
-    .modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2000; background: #05070a; }
-    .start-box { text-align: center; border: 1px solid var(--cyan); padding: 50px; background: rgba(0, 243, 255, 0.05); }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <div class="header-ui">
-    <div class="conveyor-viewport" id="viewport" style="display:none">
-        <div class="conveyor-belt" id="belt"></div>
-    </div>
-  </div>
-  
-  <div class="stats-panel" id="statsPanel" style="display:none">
-    <div><small style="color:var(--cyan); letter-spacing:2px;">GLOBAL SCORE</small><div id="score" class="stat-val">0</div></div>
-    <div><small style="color:var(--cyan); letter-spacing:2px;">TARGET INDEX</small><div class="stat-val"><span id="progress">0</span> / <span id="total">0</span></div></div>
-  </div>
-
-  <div id="confirmContainer"><button class="btn-confirm" id="confirmBtn">LOCK COORDINATES</button></div>
-
-  <div id="startModal" class="modal-overlay">
-    <div class="start-box">
-      <h2 style="color:var(--cyan); letter-spacing:12px; margin:0 0 10px 0;">GEO-SCANNER</h2>
-      <p style="color:rgba(255,255,255,0.4); font-size:0.8rem; margin-bottom:30px;">MAINLAND CHINA DATABASE v2.4</p>
-      <div style="font-size: 6rem; color:#fff; font-weight:900;" id="countDisplay">50</div>
-      <input type="range" id="citySlider" min="5" max="300" value="50" style="width:100%; margin:30px 0; cursor:pointer;">
-      <button id="startBtn" style="width:100%; padding:18px; background:var(--cyan); font-weight:900; cursor:pointer; border:none; letter-spacing:4px;">INITIALIZE SCAN</button>
-    </div>
-  </div>
-
-  <script>
-    // 已去除台灣城市
+<script>
+    // 已擴充至 110 個城市 (不含台灣)
     const DB = [
-      {cn:"北京",en:"BEIJING",coords:[39.9,116.4]},{cn:"上海",en:"SHANGHAI",coords:[31.2,121.4]},{cn:"廣州",en:"GUANGZHOU",coords:[23.1,113.2]},{cn:"深圳",en:"SHENZHEN",coords:[22.5,114.0]},{cn:"成都",en:"CHENGDU",coords:[30.5,104.0]},{cn:"重慶",en:"CHONGQING",coords:[29.5,106.5]},{cn:"杭州",en:"HANGZHOU",coords:[30.2,120.1]},{cn:"西安",en:"XI'AN",coords:[34.3,108.9]},{cn:"武漢",en:"WUHAN",coords:[30.5,114.3]},{cn:"南京",en:"NANJING",coords:[32.0,118.8]},{cn:"天津",en:"TIANJIN",coords:[39.0,117.2]},{cn:"鄭州",en:"ZHENGZHOU",coords:[34.7,113.6]},{cn:"長沙",en:"CHANGSHA",coords:[28.2,112.9]},{cn:"沈陽",en:"SHENYANG",coords:[41.8,123.4]},{cn:"青島",en:"QINGDAO",coords:[36.0,120.3]},{cn:"昆明",en:"KUNMING",coords:[25.0,102.7]},{cn:"大連",en:"DALIAN",coords:[38.9,121.6]},{cn:"廈門",en:"XIAMEN",coords:[24.4,118.0]},{cn:"哈爾濱",en:"HARBIN",coords:[45.8,126.5]},{cn:"烏魯木齊",en:"URUMQI",coords:[43.8,87.6]},{cn:"拉薩",en:"LHASA",coords:[29.6,91.1]},{cn:"三亞",en:"SANYA",coords:[18.2,109.5]},{cn:"石家莊",en:"SHIJIAZHUANG",coords:[38.0,114.5]},{cn:"南昌",en:"NANCHANG",coords:[28.6,115.8]},{cn:"濟南",en:"JINAN",coords:[36.6,117.0]},{cn:"南寧",en:"NANNING",coords:[22.8,108.3]},{cn:"貴陽",en:"GUIYANG",coords:[26.6,106.6]},{cn:"蘭州",en:"LANZHOU",coords:[36.0,103.8]},{cn:"海口",en:"HAIKOU",coords:[20.0,110.3]},{cn:"銀川",en:"YINCHUAN",coords:[38.4,106.2]},{cn:"西寧",en:"XINING",coords:[36.6,101.7]},{cn:"呼和浩特",en:"HOHHOT",coords:[40.8,111.7]}
+        {cn:"北京",en:"BEIJING",coords:[39.9,116.4]},{cn:"上海",en:"SHANGHAI",coords:[31.2,121.4]},{cn:"廣州",en:"GUANGZHOU",coords:[23.1,113.2]},{cn:"深圳",en:"SHENZHEN",coords:[22.5,114.0]},{cn:"成都",en:"CHENGDU",coords:[30.5,104.0]},{cn:"重慶",en:"CHONGQING",coords:[29.5,106.5]},{cn:"杭州",en:"HANGZHOU",coords:[30.2,120.1]},{cn:"西安",en:"XI'AN",coords:[34.3,108.9]},{cn:"武漢",en:"WUHAN",coords:[30.5,114.3]},{cn:"南京",en:"NANJING",coords:[32.0,118.8]},{cn:"天津",en:"TIANJIN",coords:[39.0,117.2]},{cn:"鄭州",en:"ZHENGZHOU",coords:[34.7,113.6]},{cn:"長沙",en:"CHANGSHA",coords:[28.2,112.9]},{cn:"沈陽",en:"SHENYANG",coords:[41.8,123.4]},{cn:"青島",en:"QINGDAO",coords:[36.0,120.3]},{cn:"昆明",en:"KUNMING",coords:[25.0,102.7]},{cn:"大連",en:"DALIAN",coords:[38.9,121.6]},{cn:"廈門",en:"XIAMEN",coords:[24.4,118.0]},{cn:"哈爾濱",en:"HARBIN",coords:[45.8,126.5]},{cn:"烏魯木齊",en:"URUMQI",coords:[43.8,87.6]},{cn:"拉薩",en:"LHASA",coords:[29.6,91.1]},{cn:"三亞",en:"SANYA",coords:[18.2,109.5]},{cn:"石家莊",en:"SHIJIAZHUANG",coords:[38.0,114.5]},{cn:"南昌",en:"NANCHANG",coords:[28.6,115.8]},{cn:"濟南",en:"JINAN",coords:[36.6,117.0]},{cn:"南寧",en:"NANNING",coords:[22.8,108.3]},{cn:"貴陽",en:"GUIYANG",coords:[26.6,106.6]},{cn:"蘭州",en:"LANZHOU",coords:[36.0,103.8]},{cn:"海口",en:"HAIKOU",coords:[20.0,110.3]},{cn:"銀川",en:"YINCHUAN",coords:[38.4,106.2]},{cn:"西寧",en:"XINING",coords:[36.6,101.7]},{cn:"呼和浩特",en:"HOHHOT",coords:[40.8,111.7]},
+        {cn:"蘇州",en:"SUZHOU",coords:[31.3,120.6]},{cn:"無錫",en:"WUXI",coords:[31.5,120.3]},{cn:"佛山",en:"FOSHAN",coords:[23.0,113.1]},{cn:"東莞",en:"DONGGUAN",coords:[22.9,113.7]},{cn:"寧波",en:"NINGBO",coords:[29.8,121.5]},{cn:"福州",en:"FUZHOU",coords:[26.1,119.3]},{cn:"合肥",en:"HEFEI",coords:[31.8,117.2]},{cn:"常州",en:"CHANGZHOU",coords:[31.8,119.9]},{cn:"煙台",en:"YANTAI",coords:[37.5,121.4]},{cn:"唐山",en:"TANGSHAN",coords:[39.6,118.2]},{cn:"徐州",en:"XUZHOU",coords:[34.2,117.2]},{cn:"溫州",en:"WENZHOU",coords:[28.0,120.7]},{cn:"濰坊",en:"WEIFANG",coords:[36.7,119.1]},{cn:"洛陽",en:"LUOYANG",coords:[34.6,112.4]},{cn:"紹興",en:"SHAOXING",coords:[30.0,120.6]},{cn:"揚州",en:"YANGZHOU",coords:[32.4,119.4]},{cn:"南通",en:"NANTONG",coords:[32.0,120.8]},{cn:"鹽城",en:"YANCHENG",coords:[33.3,120.1]},{cn:"台州",en:"TAIZHOU",coords:[28.6,121.4]},{cn:"金華",en:"JINHUA",coords:[29.1,119.6]},{cn:"嘉興",en:"JIAXING",coords:[30.7,120.7]},{cn:"鎮江",en:"ZHENJIANG",coords:[32.2,119.4]},{cn:"宜昌",en:"YICHANG",coords:[30.7,111.3]},{cn:"襄陽",en:"XIANGYANG",coords:[32.0,112.1]},{cn:"岳陽",en:"YUEYANG",coords:[29.3,113.1]},{cn:"惠州",en:"HUIZHOU",coords:[23.1,114.4]},{cn:"中山",en:"ZHONGSHAN",coords:[22.5,113.3]},{cn:"珠海",en:"ZHUHAI",coords:[22.2,113.5]},{cn:"汕頭",en:"SHANTOU",coords:[23.3,116.6]},{cn:"湛江",en:"ZHANJIANG",coords:[21.2,110.3]},{cn:"柳州",en:"LIUZHOU",coords:[24.3,109.4]},{cn:"桂林",en:"GUILIN",coords:[25.2,110.2]},{cn:"蕪湖",en:"WUHU",coords:[31.3,118.4]},{cn:"泉州",en:"QUANZHOU",coords:[24.8,118.6]},{cn:"九江",en:"JIUJIANG",coords:[29.7,116.0]},{cn:"贛州",en:"GANZHOU",coords:[25.8,114.9]},{cn:"淄博",en:"ZIBO",coords:[36.8,118.0]},{cn:"臨沂",en:"LINYI",coords:[35.0,118.3]},{cn:"濟寧",en:"JINING",coords:[35.4,116.5]},{cn:"邯鄲",en:"HANDAN",coords:[36.6,114.5]},{cn:"保定",en:"BAODING",coords:[38.8,115.4]},{cn:"秦皇島",en:"QINHUANGDAO",coords:[39.9,119.6]},{cn:"鞍山",en:"ANSHAN",coords:[41.1,122.9]},{cn:"吉林",en:"JILIN",coords:[43.8,126.5]},{cn:"大慶",en:"DAQING",coords:[46.6,125.1]},{cn:"齊齊哈爾",en:"QIQIHAR",coords:[47.3,123.9]},{cn:"包頭",en:"BAOTOU",coords:[40.6,109.8]},{cn:"鄂爾多斯",en:"ORDOS",coords:[39.6,109.7]},{cn:"延安",en:"YAN'AN",coords:[36.5,109.5]},{cn:"漢中",en:"HANZHONG",coords:[33.0,107.0]},{cn:"天水",en:"TIANSHUI",coords:[34.5,105.7]},{cn:"克拉瑪依",en:"KARAMAY",coords:[45.5,84.8]},{cn:"喀什",en:"KASHGAR",coords:[39.4,75.9]},{cn:"庫爾勒",en:"KORLA",coords:[41.7,86.1]},{cn:"日喀則",en:"SHIGATSE",coords:[29.2,88.8]},{cn:"林芝",en:"NYINGCHI",coords:[29.6,94.3]},{cn:"遵義",en:"ZUNYI",coords:[27.7,106.9]},{cn:"大理",en:"DALI",coords:[25.6,110.2]},{cn:"麗江",en:"LIJIANG",coords:[26.8,110.2]},{cn:"綿陽",en:"MIANYANG",coords:[31.4,104.6]},{cn:"宜賓",en:"YIBIN",coords:[28.7,104.6]},{cn:"樂山",en:"LESHAN",coords:[29.5,103.7]},{cn:"攀枝花",en:"PANZHIHUA",coords:[26.5,101.7]},{cn:"自貢",en:"ZIGONG",coords:[29.3,104.7]},{cn:"張家口",en:"ZHANGJIAKOU",coords:[40.8,114.8]},{cn:"承德",en:"CHENGDE",coords:[40.9,117.9]},{cn:"滄州",en:"CANGZHOU",coords:[38.3,116.8]},{cn:"廊坊",en:"LANGFANG",coords:[39.5,116.7]},{cn:"大同",en:"DATONG",coords:[40.0,113.3]},{cn:"太原",en:"TAIYUAN",coords:[37.8,112.5]},{cn:"運城",en:"YUNCHENG",coords:[35.0,111.0]},{cn:"長治",en:"CHANGZHI",coords:[36.2,113.1]},{cn:"馬鞍山",en:"MA'ANSHAN",coords:[31.6,118.5]},{cn:"蚌埠",en:"BENGBU",coords:[32.9,117.3]},{cn:"安慶",en:"ANQING",coords:[30.5,117.0]},{cn:"威海",en:"WEIHAI",coords:[37.5,122.1]},{cn:"泰安",en:"TAI'AN",coords:[36.1,117.0]},{cn:"日照",en:"RIZHAO",coords:[35.4,119.4]}
     ];
 
     let cities=[], idx=0, score=0, started=false, isProcessing=false;
@@ -129,94 +15,98 @@
     slider.oninput = () => document.getElementById('countDisplay').textContent = slider.value;
 
     function startGame() {
-      cities = [...DB].sort(()=>Math.random()-0.5).slice(0, parseInt(slider.value));
-      document.getElementById('total').textContent = cities.length;
-      document.getElementById('startModal').style.display = 'none';
-      document.getElementById('viewport').style.display = 'block';
-      document.getElementById('statsPanel').style.display = 'block';
-      
-      const belt = document.getElementById('belt');
-      belt.innerHTML = cities.map(c => `<div class="city-card"><span class="city-name-cn">${c.cn}</span><span class="city-name-en">${c.en}</span></div>`).join('');
-      started = true;
-      updateConveyor();
+        const count = parseInt(slider.value);
+        let pool = [...DB].sort(() => Math.random() - 0.5);
+        
+        // 解決「數量不足」的核心邏輯：
+        cities = [];
+        while (cities.length < count) {
+            cities.push(...pool); // 如果選 300 個，就重複塞入 pool 直到滿
+        }
+        cities = cities.slice(0, count); // 裁切到精確數量
+
+        document.getElementById('total').textContent = cities.length;
+        document.getElementById('startModal').style.display = 'none';
+        document.getElementById('viewport').style.display = 'block';
+        document.getElementById('statsPanel').style.display = 'block';
+        
+        const belt = document.getElementById('belt');
+        belt.innerHTML = cities.map(c => `<div class="city-card"><span class="city-name-cn">${c.cn}</span><span class="city-name-en">${c.en}</span></div>`).join('');
+        started = true;
+        updateConveyor();
     }
 
     function updateConveyor() {
-      document.getElementById('belt').style.transform = `translateX(${-(idx * 220) - 110}px)`;
-      document.querySelectorAll('.city-card').forEach((card, i) => card.classList.toggle('active', i === idx));
-      document.getElementById('progress').textContent = idx + 1;
-      isProcessing = false;
+        document.getElementById('belt').style.transform = `translateX(${-(idx * 220) - 110}px)`;
+        document.querySelectorAll('.city-card').forEach((card, i) => card.classList.toggle('active', i === idx));
+        document.getElementById('progress').textContent = idx + 1;
+        isProcessing = false;
     }
 
     map.on('click', e => {
-      if(!started || isProcessing) return;
-      currentClickPos = e.latlng;
-      if(playerMarker) map.removeLayer(playerMarker);
-      playerMarker = L.circleMarker(e.latlng, {
-        radius: 10, color: '#000', fillColor: '#ff3366', weight: 3, fillOpacity: 1
-      }).addTo(map);
-      document.getElementById('confirmContainer').style.display = 'block';
+        if(!started || isProcessing) return;
+        currentClickPos = e.latlng;
+        if(playerMarker) map.removeLayer(playerMarker);
+        playerMarker = L.circleMarker(e.latlng, {
+            radius: 10, color: '#000', fillColor: '#ff3366', weight: 3, fillOpacity: 1
+        }).addTo(map);
+        document.getElementById('confirmContainer').style.display = 'block';
     });
 
     function submitAnswer() {
-      if(!started || !currentClickPos || isProcessing) return;
-      isProcessing = true;
-      document.getElementById('confirmContainer').style.display = 'none';
+        if(!started || !currentClickPos || isProcessing) return;
+        isProcessing = true;
+        document.getElementById('confirmContainer').style.display = 'none';
 
-      const city = cities[idx];
-      const dist = map.distance(currentClickPos, city.coords) / 1000;
-      const points = Math.round(5000 * Math.pow(Math.E, -dist / 500));
-      
-      // 第一階段：放大選區
-      map.flyTo(currentClickPos, 7, { duration: 0.5 });
-
-      setTimeout(() => {
-        burstScore(points);
-        // 第二階段：雷射綠標記正確位置
-        targetMarker = L.circleMarker(city.coords, {
-          radius: 12, color: '#000', fillColor: '#00ff66', weight: 4, fillOpacity: 1
-        }).addTo(map);
-        connectorLine = L.polyline([currentClickPos, city.coords], {color: '#000', weight: 3, opacity: 0.6}).addTo(map);
+        const city = cities[idx];
+        const dist = map.distance(currentClickPos, city.coords) / 1000;
+        const points = Math.round(5000 * Math.pow(Math.E, -dist / 500));
         
-        score += points;
-        document.getElementById('score').textContent = score.toLocaleString();
-        // 平移到目標
-        map.flyTo(city.coords, 8, { duration: 0.8 });
-      }, 600);
+        map.flyTo(currentClickPos, 7, { duration: 0.5 });
 
-      setTimeout(() => {
-        idx++;
-        if(playerMarker) map.removeLayer(playerMarker);
-        if(targetMarker) map.removeLayer(targetMarker);
-        if(connectorLine) map.removeLayer(connectorLine);
-        if(idx < cities.length) { 
-            updateConveyor(); 
-            map.flyTo([35, 105], 4, { duration: 0.7 }); 
-        } else { alert("SCAN COMPLETE! FINAL SCORE: " + score); location.reload(); }
-      }, 2800);
+        setTimeout(() => {
+            burstScore(points);
+            targetMarker = L.circleMarker(city.coords, {
+                radius: 12, color: '#000', fillColor: '#00ff66', weight: 4, fillOpacity: 1
+            }).addTo(map);
+            connectorLine = L.polyline([currentClickPos, city.coords], {color: '#000', weight: 3, opacity: 0.6}).addTo(map);
+            
+            score += points;
+            document.getElementById('score').textContent = score.toLocaleString();
+            map.flyTo(city.coords, 8, { duration: 0.8 });
+        }, 600);
+
+        setTimeout(() => {
+            idx++;
+            if(playerMarker) map.removeLayer(playerMarker);
+            if(targetMarker) map.removeLayer(targetMarker);
+            if(connectorLine) map.removeLayer(connectorLine);
+            if(idx < cities.length) { 
+                updateConveyor(); 
+                map.flyTo([35, 105], 4, { duration: 0.7 }); 
+            } else { alert("SCAN COMPLETE! FINAL SCORE: " + score); location.reload(); }
+        }, 2800);
     }
 
     function burstScore(pts) {
-      const screenPos = map.latLngToContainerPoint(currentClickPos);
-      const div = document.createElement('div');
-      div.className = 'score-burst';
-      div.style.left = screenPos.x + 'px';
-      div.style.top = screenPos.y + 'px';
-      div.style.setProperty('--tx', (Math.random() * 200 - 100) + 'px');
-      div.style.setProperty('--ty', (-180 - Math.random() * 50) + 'px');
-      div.textContent = `+${pts}`;
-      document.body.appendChild(div);
-      setTimeout(() => div.remove(), 1200);
+        const screenPos = map.latLngToContainerPoint(currentClickPos);
+        const div = document.createElement('div');
+        div.className = 'score-burst';
+        div.style.left = screenPos.x + 'px';
+        div.style.top = screenPos.y + 'px';
+        div.style.setProperty('--tx', (Math.random() * 200 - 100) + 'px');
+        div.style.setProperty('--ty', (-180 - Math.random() * 50) + 'px');
+        div.textContent = `+${pts}`;
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 1200);
     }
 
     window.addEventListener('keydown', e => {
-      if(e.code === 'Space' && document.getElementById('confirmContainer').style.display === 'block') {
-        e.preventDefault(); submitAnswer();
-      }
+        if(e.code === 'Space' && document.getElementById('confirmContainer').style.display === 'block') {
+            e.preventDefault(); submitAnswer();
+        }
     });
 
     document.getElementById('startBtn').onclick = startGame;
     document.getElementById('confirmBtn').onclick = submitAnswer;
-  </script>
-</body>
-</html>
+</script>
