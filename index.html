@@ -12,98 +12,117 @@
       --green: #00ff66;
       --red: #ff3366;
       --gold: #ffcc00;
-      --bg: #111;
+      --bg: #0a0c10;
     }
 
-    html, body { height: 100%; margin: 0; font-family: 'PingFang SC', sans-serif; background: var(--bg); overflow: hidden; }
-    /* 地圖回歸明亮 */
-    #map { height: 100vh; width: 100vw; z-index: 1; filter: contrast(1.1); }
+    html, body { height: 100%; margin: 0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); overflow: hidden; }
+    #map { height: 100vh; width: 100vw; z-index: 1; }
 
-    /* 頂部傳送帶 - 修正對稱性與切邊 */
+    /* 頂部漸層 UI - 移除帶狀感 */
     .header-ui { 
-        position: absolute; top: 0; left: 0; width: 100%; height: 100px; 
-        background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
-        z-index: 1001; pointer-events: none; border-bottom: 1px solid rgba(255,255,255,0.1);
-        display: flex; align-items: center; justify-content: center;
+        position: absolute; top: 0; left: 0; width: 100%; height: 160px; 
+        background: linear-gradient(to bottom, 
+            rgba(10, 20, 30, 0.95) 0%, 
+            rgba(10, 20, 30, 0.6) 50%, 
+            rgba(10, 20, 30, 0) 100%); 
+        z-index: 1001; pointer-events: none;
+        display: flex; flex-direction: column; align-items: center;
     }
-    .conveyor-viewport { width: 100%; height: 80px; overflow: hidden; position: relative; }
+    
+    /* 掃描線特效裝飾 */
+    .header-ui::after {
+        content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: repeating-linear-gradient(0deg, rgba(0,243,255,0.05) 0px, transparent 2px);
+        pointer-events: none;
+    }
+
+    .conveyor-viewport { width: 100%; height: 110px; overflow: hidden; position: relative; margin-top: 10px; }
     .conveyor-belt { 
         display: flex; align-items: center; position: absolute; left: 50%; 
-        transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1);
+        transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
         height: 100%;
     }
     
     .city-card { 
-        min-width: 200px; text-align: center; opacity: 0.1; transform: scale(0.8); transition: 0.4s;
+        min-width: 220px; text-align: center; opacity: 0.15; transform: scale(0.85); transition: 0.5s;
         display: flex; flex-direction: column; justify-content: center; height: 100%;
     }
     .city-card.active { 
         opacity: 1; transform: scale(1.1); 
-        background: rgba(255, 255, 255, 0.05); border-radius: 10px;
+        text-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
     }
     
-    .city-name-cn { font-size: 2.2rem; font-weight: 900; color: #fff; line-height: 1.2; }
-    .city-name-en { font-size: 0.7rem; color: var(--cyan); letter-spacing: 2px; font-weight: bold; }
+    .city-name-cn { font-size: 2.8rem; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 4px; letter-spacing: 2px; }
+    .city-name-en { font-size: 0.8rem; color: var(--cyan); letter-spacing: 3px; font-weight: bold; text-transform: uppercase; }
 
-    /* 分數噴射動畫 */
+    /* 噴射分數 */
     .score-burst {
-        position: fixed; pointer-events: none; color: var(--gold); font-size: 3rem; font-weight: 900;
-        z-index: 9999; text-shadow: 2px 2px 0px #000, -2px -2px 0px #000;
-        animation: burst 1s ease-out forwards;
+        position: fixed; pointer-events: none; color: var(--gold); font-size: 3.5rem; font-weight: 900;
+        z-index: 9999; text-shadow: 3px 3px 0px #000;
+        animation: burst 1.2s cubic-bezier(0.15, 0.85, 0.35, 1) forwards;
     }
     @keyframes burst {
-        0% { transform: scale(0.5) translate(0,0); opacity: 0; }
-        20% { opacity: 1; transform: scale(1.2) translate(0,-20px); }
-        100% { transform: scale(1) translate(var(--tx), var(--ty)); opacity: 0; }
+        0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+        30% { opacity: 1; transform: scale(1.2) rotate(0deg); }
+        100% { transform: scale(1) translate(var(--tx), var(--ty)) rotate(10deg); opacity: 0; }
     }
 
-    /* 按鈕與面板 */
+    /* 底部 UI */
     .stats-panel { 
-        position: absolute; bottom: 20px; left: 20px; z-index: 1002; 
-        background: rgba(0,0,0,0.8); padding: 10px 20px; border: 1px solid var(--cyan);
-        display: flex; gap: 30px; border-radius: 5px;
+        position: absolute; bottom: 25px; left: 25px; z-index: 1002; 
+        background: rgba(5, 10, 15, 0.85); padding: 12px 25px; 
+        border: 1px solid rgba(0, 243, 255, 0.3); border-left: 4px solid var(--cyan);
+        display: flex; gap: 40px; border-radius: 4px; backdrop-filter: blur(8px);
     }
-    .stat-val { font-family: monospace; font-size: 1.5rem; color: #fff; font-weight: bold; }
+    .stat-val { font-family: 'Courier New', monospace; font-size: 1.6rem; color: #fff; font-weight: bold; }
     
-    #confirmContainer { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1005; display: none; }
+    #confirmContainer { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 1005; display: none; }
     .btn-confirm { 
-        background: var(--cyan); color: #000; border: 2px solid #000; padding: 12px 50px; 
-        font-size: 1.2rem; font-weight: 900; cursor: pointer; box-shadow: 0 0 20px var(--cyan);
+        background: var(--cyan); color: #000; border: none; padding: 14px 60px; 
+        font-size: 1.3rem; font-weight: 900; cursor: pointer; border-radius: 50px;
+        box-shadow: 0 0 30px rgba(0, 243, 255, 0.4); transition: 0.2s;
     }
+    .btn-confirm:hover { transform: scale(1.05); filter: brightness(1.1); }
 
-    .modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2000; background: #000; }
-    .start-box { text-align: center; border: 2px solid var(--cyan); padding: 40px; }
+    .modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2000; background: #05070a; }
+    .start-box { text-align: center; border: 1px solid var(--cyan); padding: 50px; background: rgba(0, 243, 255, 0.05); }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="header-ui"><div class="conveyor-viewport" id="viewport" style="display:none"><div class="conveyor-belt" id="belt"></div></div></div>
+  <div class="header-ui">
+    <div class="conveyor-viewport" id="viewport" style="display:none">
+        <div class="conveyor-belt" id="belt"></div>
+    </div>
+  </div>
   
   <div class="stats-panel" id="statsPanel" style="display:none">
-    <div><small style="color:var(--cyan)">SCORE</small><div id="score" class="stat-val">0</div></div>
-    <div><small style="color:var(--cyan)">TARGETS</small><div class="stat-val"><span id="progress">0</span>/<span id="total">0</span></div></div>
+    <div><small style="color:var(--cyan); letter-spacing:2px;">GLOBAL SCORE</small><div id="score" class="stat-val">0</div></div>
+    <div><small style="color:var(--cyan); letter-spacing:2px;">TARGET INDEX</small><div class="stat-val"><span id="progress">0</span> / <span id="total">0</span></div></div>
   </div>
 
-  <div id="confirmContainer"><button class="btn-confirm" id="confirmBtn">CONFIRM [SPACE]</button></div>
+  <div id="confirmContainer"><button class="btn-confirm" id="confirmBtn">LOCK COORDINATES</button></div>
 
   <div id="startModal" class="modal-overlay">
     <div class="start-box">
-      <h2 style="color:var(--cyan); margin:0 0 20px 0;">GEO-SCANNER</h2>
-      <div style="font-size: 5rem; color:#fff; font-weight:900;" id="countDisplay">50</div>
-      <input type="range" id="citySlider" min="5" max="342" value="50" style="width:100%; margin:20px 0;">
-      <button id="startBtn" style="width:100%; padding:15px; background:var(--cyan); font-weight:900; cursor:pointer;">START</button>
+      <h2 style="color:var(--cyan); letter-spacing:12px; margin:0 0 10px 0;">GEO-SCANNER</h2>
+      <p style="color:rgba(255,255,255,0.4); font-size:0.8rem; margin-bottom:30px;">MAINLAND CHINA DATABASE v2.4</p>
+      <div style="font-size: 6rem; color:#fff; font-weight:900;" id="countDisplay">50</div>
+      <input type="range" id="citySlider" min="5" max="300" value="50" style="width:100%; margin:30px 0; cursor:pointer;">
+      <button id="startBtn" style="width:100%; padding:18px; background:var(--cyan); font-weight:900; cursor:pointer; border:none; letter-spacing:4px;">INITIALIZE SCAN</button>
     </div>
   </div>
 
   <script>
-    // 數據庫部分 (請延用之前的 342 城市數據)
-    const DB = [{cn:"北京",en:"BEIJING",coords:[39.9,116.4]},{cn:"上海",en:"SHANGHAI",coords:[31.2,121.4]},{cn:"廣州",en:"GUANGZHOU",coords:[23.1,113.2]},{cn:"深圳",en:"SHENZHEN",coords:[22.5,114.0]},{cn:"台北",en:"TAIPEI",coords:[25.0,121.5]} /* ...省略... */];
+    // 已去除台灣城市
+    const DB = [
+      {cn:"北京",en:"BEIJING",coords:[39.9,116.4]},{cn:"上海",en:"SHANGHAI",coords:[31.2,121.4]},{cn:"廣州",en:"GUANGZHOU",coords:[23.1,113.2]},{cn:"深圳",en:"SHENZHEN",coords:[22.5,114.0]},{cn:"成都",en:"CHENGDU",coords:[30.5,104.0]},{cn:"重慶",en:"CHONGQING",coords:[29.5,106.5]},{cn:"杭州",en:"HANGZHOU",coords:[30.2,120.1]},{cn:"西安",en:"XI'AN",coords:[34.3,108.9]},{cn:"武漢",en:"WUHAN",coords:[30.5,114.3]},{cn:"南京",en:"NANJING",coords:[32.0,118.8]},{cn:"天津",en:"TIANJIN",coords:[39.0,117.2]},{cn:"鄭州",en:"ZHENGZHOU",coords:[34.7,113.6]},{cn:"長沙",en:"CHANGSHA",coords:[28.2,112.9]},{cn:"沈陽",en:"SHENYANG",coords:[41.8,123.4]},{cn:"青島",en:"QINGDAO",coords:[36.0,120.3]},{cn:"昆明",en:"KUNMING",coords:[25.0,102.7]},{cn:"大連",en:"DALIAN",coords:[38.9,121.6]},{cn:"廈門",en:"XIAMEN",coords:[24.4,118.0]},{cn:"哈爾濱",en:"HARBIN",coords:[45.8,126.5]},{cn:"烏魯木齊",en:"URUMQI",coords:[43.8,87.6]},{cn:"拉薩",en:"LHASA",coords:[29.6,91.1]},{cn:"三亞",en:"SANYA",coords:[18.2,109.5]},{cn:"石家莊",en:"SHIJIAZHUANG",coords:[38.0,114.5]},{cn:"南昌",en:"NANCHANG",coords:[28.6,115.8]},{cn:"濟南",en:"JINAN",coords:[36.6,117.0]},{cn:"南寧",en:"NANNING",coords:[22.8,108.3]},{cn:"貴陽",en:"GUIYANG",coords:[26.6,106.6]},{cn:"蘭州",en:"LANZHOU",coords:[36.0,103.8]},{cn:"海口",en:"HAIKOU",coords:[20.0,110.3]},{cn:"銀川",en:"YINCHUAN",coords:[38.4,106.2]},{cn:"西寧",en:"XINING",coords:[36.6,101.7]},{cn:"呼和浩特",en:"HOHHOT",coords:[40.8,111.7]}
+    ];
 
     let cities=[], idx=0, score=0, started=false, isProcessing=false;
     let currentClickPos = null, playerMarker = null, targetMarker = null, connectorLine = null;
 
-    const map = L.map('map',{zoomControl:false, attributionControl:false}).setView([35, 105], 4);
-    // 使用彩色明亮圖層
+    const map = L.map('map',{zoomControl:false, attributionControl:false, worldCopyJump:true}).setView([35, 105], 4);
     L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}').addTo(map);
 
     const slider = document.getElementById('citySlider');
@@ -123,7 +142,7 @@
     }
 
     function updateConveyor() {
-      document.getElementById('belt').style.transform = `translateX(${-(idx * 200) - 100}px)`;
+      document.getElementById('belt').style.transform = `translateX(${-(idx * 220) - 110}px)`;
       document.querySelectorAll('.city-card').forEach((card, i) => card.classList.toggle('active', i === idx));
       document.getElementById('progress').textContent = idx + 1;
       isProcessing = false;
@@ -133,9 +152,8 @@
       if(!started || isProcessing) return;
       currentClickPos = e.latlng;
       if(playerMarker) map.removeLayer(playerMarker);
-      // 玩家標記：紅底黑框，增加對比
       playerMarker = L.circleMarker(e.latlng, {
-        radius: 9, color: '#000', fillColor: '#ff0000', weight: 4, fillOpacity: 1
+        radius: 10, color: '#000', fillColor: '#ff3366', weight: 3, fillOpacity: 1
       }).addTo(map);
       document.getElementById('confirmContainer').style.display = 'block';
     });
@@ -149,19 +167,19 @@
       const dist = map.distance(currentClickPos, city.coords) / 1000;
       const points = Math.round(5000 * Math.pow(Math.E, -dist / 500));
       
-      // 第一階段：放大點選處
+      // 第一階段：放大選區
       map.flyTo(currentClickPos, 7, { duration: 0.5 });
 
       setTimeout(() => {
         burstScore(points);
         // 第二階段：雷射綠標記正確位置
         targetMarker = L.circleMarker(city.coords, {
-          radius: 10, color: '#000', fillColor: '#00ff00', weight: 4, fillOpacity: 1
+          radius: 12, color: '#000', fillColor: '#00ff66', weight: 4, fillOpacity: 1
         }).addTo(map);
-        connectorLine = L.polyline([currentClickPos, city.coords], {color: '#000', weight: 2, dashArray: '5, 5'}).addTo(map);
+        connectorLine = L.polyline([currentClickPos, city.coords], {color: '#000', weight: 3, opacity: 0.6}).addTo(map);
         
         score += points;
-        document.getElementById('score').textContent = score;
+        document.getElementById('score').textContent = score.toLocaleString();
         // 平移到目標
         map.flyTo(city.coords, 8, { duration: 0.8 });
       }, 600);
@@ -173,9 +191,9 @@
         if(connectorLine) map.removeLayer(connectorLine);
         if(idx < cities.length) { 
             updateConveyor(); 
-            map.flyTo([35, 105], 4, { duration: 0.6 }); 
-        } else { alert("Mission Complete! Score: " + score); location.reload(); }
-      }, 2600);
+            map.flyTo([35, 105], 4, { duration: 0.7 }); 
+        } else { alert("SCAN COMPLETE! FINAL SCORE: " + score); location.reload(); }
+      }, 2800);
     }
 
     function burstScore(pts) {
@@ -184,11 +202,11 @@
       div.className = 'score-burst';
       div.style.left = screenPos.x + 'px';
       div.style.top = screenPos.y + 'px';
-      div.style.setProperty('--tx', (Math.random() * 160 - 80) + 'px');
-      div.style.setProperty('--ty', (-120 - Math.random() * 50) + 'px');
+      div.style.setProperty('--tx', (Math.random() * 200 - 100) + 'px');
+      div.style.setProperty('--ty', (-180 - Math.random() * 50) + 'px');
       div.textContent = `+${pts}`;
       document.body.appendChild(div);
-      setTimeout(() => div.remove(), 1000);
+      setTimeout(() => div.remove(), 1200);
     }
 
     window.addEventListener('keydown', e => {
