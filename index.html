@@ -3,44 +3,60 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GEO-SCANNER: AMAP LEGEND ALIGNED</title>
+  <title>GEO-SCANNER: PRECISION</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    :root { --cyan: #00f3ff; --green: #00ff66; --red: #ff3366; --bg: #0a0c10; }
-    html, body { height: 100%; margin: 0; font-family: 'PingFang SC', sans-serif; background: var(--bg); overflow: hidden; }
-    #map { height: 100vh; width: 100vw; z-index: 1; filter: contrast(1.1) brightness(0.9); }
-
-    /* 頂部柔和漸層 - 確保不擋圖例 */
-    .header-ui { 
-        position: absolute; top: 0; left: 0; width: 100%; height: 140px; 
-        background: linear-gradient(to bottom, rgba(10,15,25,0.9) 0%, rgba(10,15,25,0) 100%); 
-        z-index: 1001; pointer-events: none;
+    :root {
+      --cyan: #00f3ff; --green: #00ff66; --red: #ff3366; --gold: #ffcc00; --bg: #0a0c10;
     }
-    .conveyor-viewport { width: 100%; height: 90px; overflow: hidden; position: relative; margin-top: 5px; }
-    .conveyor-belt { display: flex; align-items: center; position: absolute; left: 50%; transition: transform 0.7s cubic-bezier(0.19, 1, 0.22, 1); }
-    .city-card { min-width: 240px; text-align: center; opacity: 0.1; transform: scale(0.8); transition: 0.5s; }
-    .city-card.active { opacity: 1; transform: scale(1.1); filter: drop-shadow(0 0 15px var(--cyan)); }
-    .city-name-cn { font-size: 3.2rem; font-weight: 900; color: #fff; text-shadow: 0 0 20px rgba(0,243,255,0.5); }
+    html, body { height: 100%; margin: 0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); overflow: hidden; }
+    #map { height: 100vh; width: 100vw; z-index: 1; }
 
-    /* 下方數據面板 */
-    .stats-panel { position: absolute; bottom: 30px; left: 30px; z-index: 1002; background: rgba(0,0,0,0.85); padding: 15px 30px; border: 1px solid var(--cyan); border-radius: 2px; display: flex; gap: 50px; }
-    .stat-label { color: var(--cyan); font-size: 0.7rem; letter-spacing: 2px; margin-bottom: 5px; }
-    .stat-val { color: #fff; font-size: 2rem; font-weight: 900; font-family: monospace; }
+    /* 頂部漸層 UI - 柔和過渡 */
+    .header-ui { 
+        position: absolute; top: 0; left: 0; width: 100%; height: 160px; 
+        background: linear-gradient(to bottom, 
+            rgba(10, 15, 25, 0.95) 0%, 
+            rgba(10, 15, 25, 0.4) 60%, 
+            transparent 100%); 
+        z-index: 1001; pointer-events: none;
+        display: flex; flex-direction: column; align-items: center;
+    }
 
-    /* 情報窗 */
+    .conveyor-viewport { width: 100%; height: 100px; overflow: hidden; position: relative; margin-top: 10px; }
+    .conveyor-belt { display: flex; align-items: center; position: absolute; left: 50%; transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1); }
+    .city-card { min-width: 240px; text-align: center; opacity: 0.05; transform: scale(0.8); transition: 0.5s; }
+    .city-card.active { opacity: 1; transform: scale(1.1); filter: drop-shadow(0 0 10px var(--cyan)); }
+    .city-name-cn { font-size: 3rem; font-weight: 900; color: #fff; letter-spacing: 4px; }
+
+    /* 右下角情報窗 - 打字與掃描線效果 */
     #intelBox {
         position: absolute; bottom: 30px; right: 30px; width: 320px; z-index: 1002;
-        background: rgba(5, 10, 20, 0.95); border-right: 4px solid var(--green);
-        padding: 20px; color: #fff; backdrop-filter: blur(10px); display: none;
-        box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        background: rgba(5, 15, 25, 0.9); border: 1px solid var(--cyan);
+        padding: 20px; color: #fff; backdrop-filter: blur(10px);
+        display: none; border-left: 5px solid var(--cyan);
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
     }
+    .intel-active { animation: slideIn 0.4s ease-out forwards; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .intel-header { font-size: 0.75rem; color: var(--cyan); margin-bottom: 10px; border-bottom: 1px solid rgba(0,243,255,0.2); padding-bottom: 5px; font-weight: bold; }
+    .intel-content { font-size: 0.95rem; line-height: 1.6; letter-spacing: 1px; }
 
+    /* 左下角數據 */
+    .stats-panel { position: absolute; bottom: 30px; left: 30px; z-index: 1002; background: rgba(0,0,0,0.8); padding: 15px 25px; border: 1px solid rgba(0,243,255,0.3); border-radius: 4px; display: flex; gap: 40px; }
+    .stat-val { color: #fff; font-size: 1.8rem; font-weight: 900; font-family: 'Courier New', monospace; }
+
+    /* 鎖定按鈕 */
     #confirmContainer { position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); z-index: 1005; display: none; }
-    .btn-confirm { background: var(--cyan); color: #000; border: none; padding: 18px 90px; font-size: 1.4rem; font-weight: 900; cursor: pointer; transition: 0.3s; }
-    .btn-confirm:hover { background: #fff; box-shadow: 0 0 40px var(--cyan); }
+    .btn-confirm { 
+        background: var(--cyan); color: #000; border: none; padding: 16px 80px; 
+        font-size: 1.3rem; font-weight: 900; cursor: pointer; border-radius: 4px;
+        box-shadow: 0 0 25px rgba(0, 243, 255, 0.5); transition: 0.2s;
+    }
+    .btn-confirm:hover { filter: brightness(1.2); transform: scale(1.05); }
 
-    .modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2000; background: #000; }
+    .modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2000; background: #05070a; }
   </style>
 </head>
 <body>
@@ -48,70 +64,72 @@
   <div class="header-ui"><div class="conveyor-viewport" id="viewport" style="display:none"><div class="conveyor-belt" id="belt"></div></div></div>
   
   <div class="stats-panel" id="statsPanel" style="display:none">
-    <div><div class="stat-label">TOTAL SCORE</div><div id="score" class="stat-val">0</div></div>
-    <div><div class="stat-label">SCAN INDEX</div><div class="stat-val"><span id="progress">0</span>/<span id="total">0</span></div></div>
+    <div><small style="color:var(--cyan)">TOTAL SCORE</small><div id="score" class="stat-val">0</div></div>
+    <div><small style="color:var(--cyan)">INDEX</small><div class="stat-val"><span id="progress">0</span>/<span id="total">0</span></div></div>
   </div>
 
-  <div id="intelBox"><div style="color:var(--green); font-size:0.8rem; margin-bottom:10px;">TARGET ACQUIRED</div><div id="intelBody" style="line-height:1.6;"></div></div>
+  <div id="intelBox"><div class="intel-header">ADMINISTRATIVE INTEL [DECRYPTED]</div><div class="intel-content" id="intelBody"></div></div>
 
-  <div id="confirmContainer"><button class="btn-confirm" id="confirmBtn">CONFIRM TARGET</button></div>
+  <div id="confirmContainer"><button class="btn-confirm" id="confirmBtn">LOCK TARGET [SPACE]</button></div>
 
   <div id="startModal" class="modal-overlay">
-    <div style="text-align:center; border:1px solid rgba(0,243,255,0.3); padding:60px; background:rgba(0,10,20,0.8)">
-      <h1 style="color:var(--cyan); letter-spacing:10px;">AMAP PRECISION</h1>
-      <p style="color:rgba(255,255,255,0.4);">已校準 80+ 核心城市行政中心座標</p>
-      <div style="font-size:6rem; color:#fff; font-weight:900; margin:20px 0;" id="countDisplay">50</div>
-      <input type="range" id="citySlider" min="5" max="80" value="50" style="width:100%;">
-      <button id="startBtn" style="width:100%; padding:20px; background:var(--cyan); font-weight:900; margin-top:30px; cursor:pointer; border:none;">START SCAN</button>
+    <div style="text-align:center; border:1px solid var(--cyan); padding:50px; background:rgba(0,243,255,0.03)">
+      <h1 style="color:var(--cyan); letter-spacing:15px; margin:0;">GEO-SCANNER</h1>
+      <p style="color:rgba(255,255,255,0.4); margin-bottom:40px;">PRECISION MODE: CITY CENTER COORDINATES</p>
+      <div style="font-size:7rem; color:#fff; font-weight:900;" id="countDisplay">50</div>
+      <input type="range" id="citySlider" min="5" max="80" value="50" style="width:100%; margin:20px 0;">
+      <button id="startBtn" style="width:100%; padding:20px; background:var(--cyan); font-weight:900; cursor:pointer; border:none; letter-spacing:4px;">INITIALIZE MISSION</button>
     </div>
   </div>
 
   <script>
-    // 座標點已精確校準至高德地圖底圖圖例中心 (市政府/行政中心)
-    const AMAP_PRECISION_DB = [
-      {cn:"北京", coords:[39.9042,116.4074], info:"標記點位於天安門廣場北側，北京市零公里標誌附近。"},
-      {cn:"上海", coords:[31.2304,121.4737], info:"落在人民大道上海市政府門口，地圖上海字樣正下方。"},
-      {cn:"廣州", coords:[23.1291,113.2644], info:"廣州市政府（越秀區），對齊高德地圖廣州圖例點。"},
-      {cn:"深圳", coords:[22.5431,114.0579], info:"市民中心。落在深南大道與福中三路交匯的圖例中心。"},
-      {cn:"成都", coords:[30.6586,104.0648], info:"天府廣場正中心，成都地圖坐標原點。"},
-      {cn:"重慶", coords:[29.5630,106.5516], info:"渝中區人民政府旁，對齊解放碑圖例標註。"},
-      {cn:"杭州", coords:[30.2741,120.1551], info:"杭州市政府。精確落在西湖東北側的行政中心點。"},
-      {cn:"武漢", coords:[30.5928,114.3055], info:"漢口沿江大道市政府，對齊高德武漢字樣坐標。"},
-      {cn:"西安", coords:[34.3416,108.9398], info:"西安鐘樓中心點，古城對稱中軸線原點。"},
-      {cn:"南京", coords:[32.0603,118.7969], info:"南京市政府（玄武區），對齊地標文字中心。"},
-      {cn:"鄭州", coords:[34.7466,113.6253], info:"二七廣場綠地中心，中原樞紐的圖例錨點。"},
-      {cn:"天津", coords:[39.0841,117.2009], info:"天津市政府所在地，精確對齊海河畔行政標註。"},
-      {cn:"蘇州", coords:[31.2989,120.5853], info:"蘇州市政府，落在三香路行政軸線上。"},
-      {cn:"青島", coords:[36.0671,120.3826], info:"青島市政府（五四廣場），對齊海岸線行政標籤。"},
-      {cn:"長沙", coords:[28.2282,112.9388], info:"五一廣場地鐵站上方，長沙核心商業行政點。"},
-      {cn:"瀋陽", coords:[41.8057,123.4315], info:"瀋陽市政府廣場中心，東北地區重要標註點。"},
-      {cn:"昆明", coords:[25.0406,102.7123], info:"昆明市政府，對齊東風廣場與翠湖間的圖例。"},
-      {cn:"拉薩", coords:[29.6469,91.1172], info:"布達拉宮正門廣場，西藏行政與地圖原點。"},
-      {cn:"烏魯木齊", coords:[43.8256,87.6168], info:"市政府辦公廳坐標，對齊西大橋周邊標註。"},
-      {cn:"哈爾濱", coords:[45.7569,126.6424], info:"哈爾濱市政府（松北區），對齊江北行政中心。"},
-      {cn:"福州", coords:[26.0745,119.2965], info:"福建省政府門口，鼓樓區行政核心圖例。"},
-      {cn:"南寧", coords:[22.8170,108.3665], info:"廣西南寧市政府，落在嘉和城與金湖廣場中軸。"},
-      {cn:"銀川", coords:[38.4872,106.2309], info:"銀川市政府中心，精確對齊金鳳區地圖標註。"},
-      {cn:"長春", coords:[43.8171,125.3235], info:"長春市政府，落在南關區行政核心區。"},
-      {cn:"石家莊", coords:[38.0423,114.5149], info:"石家莊市政府，對齊長安區地圖文字中心。"},
-      {cn:"合肥", coords:[31.8206,117.2272], info:"合肥市政府，精確落在天鵝湖畔行政區。"},
-      {cn:"南昌", coords:[28.6820,115.8579], info:"南昌市政府，紅谷灘新區中軸線起點。"},
-      {cn:"貴陽", coords:[26.6477,106.6302], info:"貴陽市政府，觀山湖區行政標註點。"},
-      {cn:"西寧", coords:[36.6171,101.7787], info:"西寧市政府，落在城中區傳統行政原點。"},
-      {cn:"海口", coords:[20.0171,110.3312], info:"海口市政府，對齊長流新區行政中心標註。"},
-      {cn:"蘭州", coords:[36.0611,103.8343], info:"蘭州市政府，黃河岸邊的行政標註原點。"},
-      {cn:"大連", coords:[38.9140,121.6147], info:"大連市政府（人民廣場），對齊圓環中心標註。"}
+    // 經確校準至市政府/行政中心位置 (配合高德地圖圖例)
+    const PRECISION_DB = [
+      {cn:"北京", coords:[39.9042,116.4074], info:"中國政治中心。天安門廣角坐標，故宮以南。"},
+      {cn:"上海", coords:[31.2304,121.4737], info:"上海市政府所在地。外灘西側中心金融商務區。"},
+      {cn:"廣州", coords:[23.1291,113.2644], info:"越秀區行政中心。廣東省政府及千年商都原點。"},
+      {cn:"深圳", coords:[22.5431,114.0579], info:"市民中心。深南大道中段，現代科技城市核心。"},
+      {cn:"成都", coords:[30.6586,104.0648], info:"天府廣場。成都市中心原點，蜀文化匯聚地。"},
+      {cn:"武漢", coords:[30.5928,114.3055], info:"漢口江灘行政中心。三鎮交匯核心區域。"},
+      {cn:"重慶", coords:[29.5630,106.5516], info:"渝中區解放碑。山城垂直城市的地標起點。"},
+      {cn:"杭州", coords:[30.2741,120.1551], info:"錢江新城與西湖軸線中心。行政服務核心。"},
+      {cn:"西安", coords:[34.3416,108.9398], info:"鐘樓坐標。古城牆中心點，十三朝古都靈魂。"},
+      {cn:"南京", coords:[32.0603,118.7969], info:"新街口行政區。十朝都會中心，商業與行政樞紐。"},
+      {cn:"鄭州", coords:[34.7466,113.6253], info:"二七廣場中心。中原鐵路樞紐的發展原點。"},
+      {cn:"長沙", coords:[28.2282,112.9388], info:"五一廣場。湘江東岸，繁華熱辣的星城中心。"},
+      {cn:"沈陽", coords:[41.8057,123.4315], info:"市府廣場。東北重工業基地的行政心臟。"},
+      {cn:"天津", coords:[39.0841,117.2009], info:"河西區友誼路。渤海之濱的行政門戶。"},
+      {cn:"哈爾濱", coords:[45.7569,126.6424], info:"松北區新政府中心。歐式風情與冰雪之都。"},
+      {cn:"大連", coords:[38.9140,121.6147], info:"人民廣場。大連行政中軸線，濱海城市核心。"},
+      {cn:"青島", coords:[36.0671,120.3826], info:"五四廣場。新市政府所在地，海濱行政區。"},
+      {cn:"廈門", coords:[24.4798,118.0894], info:"思明區行政中心。白鷺洲公園旁的行政核心。"},
+      {cn:"濟南", coords:[36.6512,117.1201], info:"龍奧大廈新中心。泉城由舊城轉向新區的核心。"},
+      {cn:"昆明", coords:[25.0406,102.7123], info:"翠湖行政區。春城花海中的政務中心。"},
+      {cn:"南寧", coords:[22.8170,108.3665], info:"金湖廣場。東盟商務與自治區行政樞紐。"},
+      {cn:"拉薩", coords:[29.6469,91.1172], info:"布達拉宮坐標。世界屋脊上的信仰與行政原點。"},
+      {cn:"烏魯木齊", coords:[43.8256,87.6168], info:"水磨溝區行政中心。亞歐大陸中心的地標城市。"},
+      {cn:"貴陽", coords:[26.6477,106.6302], info:"觀山湖行政中心。大數據時代的避暑之都。"},
+      {cn:"銀川", coords:[38.4872,106.2309], info:"金鳳區行政中心。賀蘭山下的塞上珍珠。"},
+      {cn:"蘭州", coords:[36.0611,103.8343], info:"東方紅廣場。黃河穿城而過的行政走廊。"},
+      {cn:"西寧", coords:[36.6171,101.7787], info:"城中區行政中心。青藏高原門戶的政治經濟點。"},
+      {cn:"海口", coords:[20.0171,110.3312], info:"濱海大道行政中心。海島省會的開放原點。"},
+      {cn:"福州", coords:[26.0745,119.2965], info:"鼓樓區。福建行政核心，擁有深厚的榕城底蘊。"},
+      {cn:"合肥", coords:[31.8206,117.2272], info:"蜀山區。科技創新之城與安徽行政核心。"},
+      {cn:"石家莊", coords:[38.0423,114.5149], info:"長安區。燕趙大地的新興行政樞紐。"},
+      {cn:"南昌", coords:[28.6820,115.8579], info:"紅谷灘新區。贛江之濱的新行政與商務中心。"},
+      {cn:"呼和浩特", coords:[40.8422,111.7510], info:"賽罕區。草原明珠的自治區級政務核心。"}
     ];
 
     let cities=[], idx=0, score=0, started=false, isProcessing=false;
-    let currentClickPos, pMarker, tMarker, cLine;
+    let currentClickPos, playerMarker, targetMarker, connectorLine;
 
     const map = L.map('map',{zoomControl:false, attributionControl:false}).setView([35, 105], 4);
+    // 使用高德精簡圖層，圖例標註較清晰
     L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}').addTo(map);
 
     function startGame() {
-      const count = Math.min(parseInt(document.getElementById('citySlider').value), AMAP_PRECISION_DB.length);
-      cities = [...AMAP_PRECISION_DB].sort(()=>Math.random()-0.5).slice(0, count);
+      const count = Math.min(parseInt(document.getElementById('citySlider').value), PRECISION_DB.length);
+      cities = [...PRECISION_DB].sort(()=>Math.random()-0.5).slice(0, count);
       document.getElementById('total').textContent = cities.length;
       document.getElementById('startModal').style.display = 'none';
       document.getElementById('viewport').style.display = 'block';
@@ -126,14 +144,15 @@
       document.querySelectorAll('.city-card').forEach((card, i) => card.classList.toggle('active', i === idx));
       document.getElementById('progress').textContent = idx + 1;
       document.getElementById('intelBox').style.display = 'none';
+      document.getElementById('intelBox').classList.remove('intel-active');
       isProcessing = false;
     }
 
     map.on('click', e => {
       if(!started || isProcessing) return;
       currentClickPos = e.latlng;
-      if(pMarker) map.removeLayer(pMarker);
-      pMarker = L.circleMarker(e.latlng, {radius:8, color:'#fff', fillColor:var(--red), weight:2, fillOpacity:1}).addTo(map);
+      if(playerMarker) map.removeLayer(playerMarker);
+      playerMarker = L.circleMarker(e.latlng, {radius:10, color:'#000', fillColor:'#ff3366', weight:3, fillOpacity:1}).addTo(map);
       document.getElementById('confirmContainer').style.display = 'block';
     });
 
@@ -144,38 +163,45 @@
 
       const city = cities[idx];
       const dist = map.distance(currentClickPos, city.coords) / 1000;
-      const points = Math.round(5000 * Math.pow(Math.E, -dist / 400));
+      const points = Math.round(5000 * Math.pow(Math.E, -dist / 450));
       
-      map.flyTo(currentClickPos, 7, { duration: 0.4 });
+      // 先平滑縮放到玩家點擊點
+      map.flyTo(currentClickPos, 7, { duration: 0.5 });
 
       setTimeout(() => {
+        // 解密情報窗
         document.getElementById('intelBody').textContent = city.info;
-        document.getElementById('intelBox').style.display = 'block';
+        const ibox = document.getElementById('intelBox');
+        ibox.style.display = 'block';
+        ibox.classList.add('intel-active');
 
-        tMarker = L.circleMarker(city.coords, {radius:10, color:'#000', fillColor:var(--green), weight:3, fillOpacity:1}).addTo(map);
-        cLine = L.polyline([currentClickPos, city.coords], {color:'#fff', weight:1, dashArray:'5,5', opacity:0.6}).addTo(map);
+        // 標記正確點（市政府坐標）
+        targetMarker = L.circleMarker(city.coords, {radius:12, color:'#000', fillColor:'#00ff66', weight:4, fillOpacity:1}).addTo(map);
+        connectorLine = L.polyline([currentClickPos, city.coords], {color:'#000', weight:2, dashArray:'8,8'}).addTo(map);
         
         score += points;
         document.getElementById('score').textContent = score.toLocaleString();
         
-        // 關鍵：移動到高德底圖的精確標註點
-        map.flyTo(city.coords, 10, { duration: 0.8 });
-      }, 500);
+        // 最終跳轉至地圖圖例正上方
+        map.flyTo(city.coords, 9, { duration: 0.8 });
+      }, 600);
 
       setTimeout(() => {
         idx++;
-        if(pMarker) map.removeLayer(pMarker);
-        if(tMarker) map.removeLayer(tMarker);
-        if(cLine) map.removeLayer(cLine);
-        if(idx < cities.length) { updateConveyor(); map.flyTo([35, 105], 4, { duration: 0.6 }); }
-        else { alert("SCAN FINISHED! SCORE: " + score); location.reload(); }
-      }, 4000);
+        if(playerMarker) map.removeLayer(playerMarker);
+        if(targetMarker) map.removeLayer(targetMarker);
+        if(connectorLine) map.removeLayer(connectorLine);
+        if(idx < cities.length) { 
+            updateConveyor(); 
+            map.flyTo([35, 105], 4, { duration: 0.8 }); 
+        } else { alert("任務結束！最終得分: " + score); location.reload(); }
+      }, 3800);
     }
 
+    window.addEventListener('keydown', e => { if(e.code === 'Space' && document.getElementById('confirmContainer').style.display === 'block') submitAnswer(); });
     document.getElementById('startBtn').onclick = startGame;
     document.getElementById('confirmBtn').onclick = submitAnswer;
     document.getElementById('citySlider').oninput = (e) => document.getElementById('countDisplay').textContent = e.target.value;
-    window.addEventListener('keydown', e => { if(e.code === 'Space' && started) submitAnswer(); });
   </script>
 </body>
 </html>
