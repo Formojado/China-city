@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GEO-SCANNER NANO</title>
+  <title>GEO-SCANNER SPECTRA</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
@@ -12,69 +12,67 @@
       --green: #00ff66;
       --red: #ff3366;
       --gold: #ffcc00;
-      --bg: #050505;
+      --bg: #111;
     }
 
-    html, body { height: 100%; margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); overflow: hidden; color: #fff; }
-    #map { height: 100vh; width: 100vw; z-index: 1; filter: brightness(0.6) contrast(1.1); }
+    html, body { height: 100%; margin: 0; font-family: 'PingFang SC', sans-serif; background: var(--bg); overflow: hidden; }
+    /* 地圖回歸明亮 */
+    #map { height: 100vh; width: 100vw; z-index: 1; filter: contrast(1.1); }
 
-    /* 頂部迷你傳送帶 */
+    /* 頂部傳送帶 - 修正對稱性與切邊 */
     .header-ui { 
-        position: absolute; top: 0; left: 0; width: 100%; height: 80px; 
-        background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%); 
-        z-index: 1001; pointer-events: none; 
+        position: absolute; top: 0; left: 0; width: 100%; height: 100px; 
+        background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+        z-index: 1001; pointer-events: none; border-bottom: 1px solid rgba(255,255,255,0.1);
+        display: flex; align-items: center; justify-content: center;
     }
-    .conveyor-viewport { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 100%; height: 60px; overflow: hidden; }
-    .conveyor-belt { display: flex; align-items: center; position: absolute; left: 50%; transition: transform 0.4s cubic-bezier(0.2, 1, 0.3, 1); }
+    .conveyor-viewport { width: 100%; height: 80px; overflow: hidden; position: relative; }
+    .conveyor-belt { 
+        display: flex; align-items: center; position: absolute; left: 50%; 
+        transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1);
+        height: 100%;
+    }
     
     .city-card { 
-        min-width: 150px; text-align: center; opacity: 0.1; transform: scale(0.7); transition: 0.3s;
-        border-left: 1px solid rgba(0, 243, 255, 0.2); margin: 0 5px;
+        min-width: 200px; text-align: center; opacity: 0.1; transform: scale(0.8); transition: 0.4s;
+        display: flex; flex-direction: column; justify-content: center; height: 100%;
     }
     .city-card.active { 
-        opacity: 1; transform: scale(1); 
-        background: rgba(0, 243, 255, 0.1); border-bottom: 2px solid var(--cyan);
+        opacity: 1; transform: scale(1.1); 
+        background: rgba(255, 255, 255, 0.05); border-radius: 10px;
     }
     
-    .city-name-cn { font-size: 1.8rem; font-weight: 900; color: #fff; text-shadow: 0 0 10px var(--cyan); display: block; line-height: 1; }
-    .city-name-en { font-size: 0.6rem; color: var(--cyan); letter-spacing: 2px; display: block; opacity: 0.7; margin-top: 2px; }
+    .city-name-cn { font-size: 2.2rem; font-weight: 900; color: #fff; line-height: 1.2; }
+    .city-name-en { font-size: 0.7rem; color: var(--cyan); letter-spacing: 2px; font-weight: bold; }
 
-    /* 左下角迷你面板 */
+    /* 分數噴射動畫 */
+    .score-burst {
+        position: fixed; pointer-events: none; color: var(--gold); font-size: 3rem; font-weight: 900;
+        z-index: 9999; text-shadow: 2px 2px 0px #000, -2px -2px 0px #000;
+        animation: burst 1s ease-out forwards;
+    }
+    @keyframes burst {
+        0% { transform: scale(0.5) translate(0,0); opacity: 0; }
+        20% { opacity: 1; transform: scale(1.2) translate(0,-20px); }
+        100% { transform: scale(1) translate(var(--tx), var(--ty)); opacity: 0; }
+    }
+
+    /* 按鈕與面板 */
     .stats-panel { 
         position: absolute; bottom: 20px; left: 20px; z-index: 1002; 
-        background: rgba(0, 0, 0, 0.6); padding: 10px; border-left: 2px solid var(--cyan); 
-        backdrop-filter: blur(5px); display: flex; gap: 20px;
+        background: rgba(0,0,0,0.8); padding: 10px 20px; border: 1px solid var(--cyan);
+        display: flex; gap: 30px; border-radius: 5px;
     }
-    .stat-item { display: flex; flex-direction: column; }
-    .stat-label { font-size: 0.5rem; color: var(--cyan); opacity: 0.8; }
-    .stat-value { font-size: 1.1rem; font-weight: bold; font-family: monospace; }
-
-    /* 噴射分數動畫 */
-    .score-burst {
-        position: fixed; pointer-events: none; color: var(--gold); font-size: 2.5rem; font-weight: 900;
-        z-index: 9999; text-shadow: 0 0 10px #000;
-        animation: burstOut 1s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
-    }
-    @keyframes burstOut {
-        0% { transform: scale(0) rotate(var(--r)); opacity: 0; }
-        50% { opacity: 1; }
-        100% { transform: scale(1.5) translate(var(--tx), var(--ty)) rotate(var(--r)); opacity: 0; }
-    }
-
-    /* 底部按鈕 */
+    .stat-val { font-family: monospace; font-size: 1.5rem; color: #fff; font-weight: bold; }
+    
     #confirmContainer { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1005; display: none; }
     .btn-confirm { 
-        background: var(--cyan); color: #000; border: none; padding: 10px 40px; font-size: 1rem; font-weight: 900; 
-        cursor: pointer; box-shadow: 0 0 15px var(--cyan); letter-spacing: 2px;
+        background: var(--cyan); color: #000; border: 2px solid #000; padding: 12px 50px; 
+        font-size: 1.2rem; font-weight: 900; cursor: pointer; box-shadow: 0 0 20px var(--cyan);
     }
 
-    /* 啟動遮罩 */
-    .modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2000; background: var(--bg); }
-    .modal-box { text-align: center; width: 300px; padding: 30px; border: 1px solid var(--cyan); }
-    .btn-start { background: var(--cyan); color: #000; border: none; padding: 12px; width: 100%; font-size: 1rem; font-weight: 900; cursor: pointer; margin-top: 20px; }
-
-    input[type=range] { -webkit-appearance: none; width: 100%; background: #333; height: 3px; margin: 20px 0; }
-    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 18px; background: var(--cyan); border-radius: 50%; }
+    .modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2000; background: #000; }
+    .start-box { text-align: center; border: 2px solid var(--cyan); padding: 40px; }
   </style>
 </head>
 <body>
@@ -82,37 +80,34 @@
   <div class="header-ui"><div class="conveyor-viewport" id="viewport" style="display:none"><div class="conveyor-belt" id="belt"></div></div></div>
   
   <div class="stats-panel" id="statsPanel" style="display:none">
-    <div class="stat-item"><span class="stat-label">SCORE</span><span id="score" class="stat-value">0</span></div>
-    <div class="stat-item"><span class="stat-label">PROGRESS</span><span class="stat-value"><span id="progress">0</span>/<span id="total">0</span></span></div>
+    <div><small style="color:var(--cyan)">SCORE</small><div id="score" class="stat-val">0</div></div>
+    <div><small style="color:var(--cyan)">TARGETS</small><div class="stat-val"><span id="progress">0</span>/<span id="total">0</span></div></div>
   </div>
 
   <div id="confirmContainer"><button class="btn-confirm" id="confirmBtn">CONFIRM [SPACE]</button></div>
 
   <div id="startModal" class="modal-overlay">
-    <div class="modal-box">
-      <h3 style="color:var(--cyan); margin:0;">SYSTEM START</h3>
-      <div style="font-size: 4rem; font-weight: 900;" id="countDisplay">50</div>
-      <input type="range" id="citySlider" min="5" max="342" value="50">
-      <button id="startBtn" class="btn-start">DEPLOY SCANNER</button>
+    <div class="start-box">
+      <h2 style="color:var(--cyan); margin:0 0 20px 0;">GEO-SCANNER</h2>
+      <div style="font-size: 5rem; color:#fff; font-weight:900;" id="countDisplay">50</div>
+      <input type="range" id="citySlider" min="5" max="342" value="50" style="width:100%; margin:20px 0;">
+      <button id="startBtn" style="width:100%; padding:15px; background:var(--cyan); font-weight:900; cursor:pointer;">START</button>
     </div>
   </div>
 
   <script>
-    // 完整數據庫邏輯 (使用之前提供的 342 城市)
-    const DB = [
-      {cn:"北京",en:"BEIJING",coords:[39.90,116.40]},{cn:"上海",en:"SHANGHAI",coords:[31.23,121.47]},{cn:"廣州",en:"GUANGZHOU",coords:[23.12,113.26]},{cn:"深圳",en:"SHENZHEN",coords:[22.54,114.05]},{cn:"成都",en:"CHENGDU",coords:[30.57,104.06]},{cn:"重慶",en:"CHONGQING",coords:[29.56,106.55]},{cn:"杭州",en:"HANGZHOU",coords:[30.27,120.15]},{cn:"西安",en:"XI'AN",coords:[34.34,108.93]},{cn:"武漢",en:"WUHAN",coords:[30.59,114.30]},{cn:"南京",en:"NANJING",coords:[32.06,118.80]},{cn:"天津",en:"TIANJIN",coords:[39.08,117.20]},{cn:"鄭州",en:"ZHENGZHOU",coords:[34.74,113.62]},{cn:"長沙",en:"CHANGSHA",coords:[28.22,112.93]},{cn:"沈陽",en:"SHENYANG",coords:[41.80,123.43]},{cn:"青島",en:"QINGDAO",coords:[36.06,120.38]},{cn:"昆明",en:"KUNMING",coords:[25.04,102.71]},{cn:"大連",en:"DALIAN",coords:[38.91,121.61]},{cn:"廈門",en:"XIAMEN",coords:[24.47,118.08]},{cn:"哈爾濱",en:"HARBIN",coords:[45.80,126.53]},{cn:"烏魯木齊",en:"URUMQI",coords:[43.82,87.61]},{cn:"拉薩",en:"LHASA",coords:[29.64,91.11]},{cn:"三亞",en:"SANYA",coords:[18.25,109.51]},{cn:"喀什",en:"KASHGAR",coords:[39.46,75.98]},{cn:"漠河",en:"MOHE",coords:[52.97,122.53]},{cn:"林芝",en:"NYINGCHI",coords:[29.65,94.36]}
-      /* 此處省略 300+ 城市數據，實際使用時請保留之前的完整列表 */
-    ];
+    // 數據庫部分 (請延用之前的 342 城市數據)
+    const DB = [{cn:"北京",en:"BEIJING",coords:[39.9,116.4]},{cn:"上海",en:"SHANGHAI",coords:[31.2,121.4]},{cn:"廣州",en:"GUANGZHOU",coords:[23.1,113.2]},{cn:"深圳",en:"SHENZHEN",coords:[22.5,114.0]},{cn:"台北",en:"TAIPEI",coords:[25.0,121.5]} /* ...省略... */];
 
     let cities=[], idx=0, score=0, started=false, isProcessing=false;
     let currentClickPos = null, playerMarker = null, targetMarker = null, connectorLine = null;
 
     const map = L.map('map',{zoomControl:false, attributionControl:false}).setView([35, 105], 4);
-    L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}').addTo(map);
+    // 使用彩色明亮圖層
+    L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}').addTo(map);
 
     const slider = document.getElementById('citySlider');
-    const display = document.getElementById('countDisplay');
-    slider.oninput = () => display.textContent = slider.value;
+    slider.oninput = () => document.getElementById('countDisplay').textContent = slider.value;
 
     function startGame() {
       cities = [...DB].sort(()=>Math.random()-0.5).slice(0, parseInt(slider.value));
@@ -122,18 +117,13 @@
       document.getElementById('statsPanel').style.display = 'block';
       
       const belt = document.getElementById('belt');
-      belt.innerHTML = cities.map(c => `
-        <div class="city-card">
-          <span class="city-name-cn">${c.cn}</span>
-          <span class="city-name-en">${c.en}</span>
-        </div>`).join('');
-
+      belt.innerHTML = cities.map(c => `<div class="city-card"><span class="city-name-cn">${c.cn}</span><span class="city-name-en">${c.en}</span></div>`).join('');
       started = true;
       updateConveyor();
     }
 
     function updateConveyor() {
-      document.getElementById('belt').style.transform = `translateX(${-(idx * 160) - 80}px)`;
+      document.getElementById('belt').style.transform = `translateX(${-(idx * 200) - 100}px)`;
       document.querySelectorAll('.city-card').forEach((card, i) => card.classList.toggle('active', i === idx));
       document.getElementById('progress').textContent = idx + 1;
       isProcessing = false;
@@ -143,7 +133,10 @@
       if(!started || isProcessing) return;
       currentClickPos = e.latlng;
       if(playerMarker) map.removeLayer(playerMarker);
-      playerMarker = L.circleMarker(e.latlng, {radius: 6, color: '#fff', fillColor: '#ff3366', weight: 2, fillOpacity: 1}).addTo(map);
+      // 玩家標記：紅底黑框，增加對比
+      playerMarker = L.circleMarker(e.latlng, {
+        radius: 9, color: '#000', fillColor: '#ff0000', weight: 4, fillOpacity: 1
+      }).addTo(map);
       document.getElementById('confirmContainer').style.display = 'block';
     });
 
@@ -154,38 +147,35 @@
 
       const city = cities[idx];
       const dist = map.distance(currentClickPos, city.coords) / 1000;
-      const points = Math.round(5000 * Math.pow(Math.E, -dist / 450));
+      const points = Math.round(5000 * Math.pow(Math.E, -dist / 500));
       
-      // 動畫階段 1: 先放大所選區域
-      map.flyTo(currentClickPos, 7, { duration: 0.6 });
+      // 第一階段：放大點選處
+      map.flyTo(currentClickPos, 7, { duration: 0.5 });
 
       setTimeout(() => {
-        // 噴射分數動畫
         burstScore(points);
-
-        // 動畫階段 2: 顯示正確位置並拉過去
-        targetMarker = L.circleMarker(city.coords, {radius: 8, color: '#000', fillColor: '#00ff66', weight: 3, fillOpacity: 1}).addTo(map);
-        connectorLine = L.polyline([currentClickPos, city.coords], {color: '#fff', weight: 2, dashArray: '5, 5', opacity: 0.5}).addTo(map);
+        // 第二階段：雷射綠標記正確位置
+        targetMarker = L.circleMarker(city.coords, {
+          radius: 10, color: '#000', fillColor: '#00ff00', weight: 4, fillOpacity: 1
+        }).addTo(map);
+        connectorLine = L.polyline([currentClickPos, city.coords], {color: '#000', weight: 2, dashArray: '5, 5'}).addTo(map);
         
         score += points;
         document.getElementById('score').textContent = score;
-
+        // 平移到目標
         map.flyTo(city.coords, 8, { duration: 0.8 });
-      }, 700);
+      }, 600);
 
       setTimeout(() => {
         idx++;
         if(playerMarker) map.removeLayer(playerMarker);
         if(targetMarker) map.removeLayer(targetMarker);
         if(connectorLine) map.removeLayer(connectorLine);
-        
         if(idx < cities.length) { 
             updateConveyor(); 
-            map.flyTo([35, 105], 4, { duration: 0.5 }); 
-        } else { 
-            alert("SCAN COMPLETE: " + score); location.reload();
-        }
-      }, 2800);
+            map.flyTo([35, 105], 4, { duration: 0.6 }); 
+        } else { alert("Mission Complete! Score: " + score); location.reload(); }
+      }, 2600);
     }
 
     function burstScore(pts) {
@@ -194,10 +184,9 @@
       div.className = 'score-burst';
       div.style.left = screenPos.x + 'px';
       div.style.top = screenPos.y + 'px';
-      div.style.setProperty('--tx', (Math.random() * 200 - 100) + 'px');
-      div.style.setProperty('--ty', (-150 - Math.random() * 100) + 'px');
-      div.style.setProperty('--r', (Math.random() * 40 - 20) + 'deg');
-      div.textContent = pts > 1000 ? `🔥 +${pts}` : `+${pts}`;
+      div.style.setProperty('--tx', (Math.random() * 160 - 80) + 'px');
+      div.style.setProperty('--ty', (-120 - Math.random() * 50) + 'px');
+      div.textContent = `+${pts}`;
       document.body.appendChild(div);
       setTimeout(() => div.remove(), 1000);
     }
